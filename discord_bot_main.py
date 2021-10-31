@@ -193,6 +193,7 @@ async def on_raw_reaction_add(payload):
     except:
         admin_level = guild_name = 'PV'
     user: discord.member = payload.member
+
     try:
         pass_base = None
         channel = bot.get_channel(payload.channel_id)
@@ -205,7 +206,7 @@ async def on_raw_reaction_add(payload):
                     vizov_iscluchenija
             except:       
                 await channel.send(f"Sorry, but you are not in my database... \nYou can enter yourself by writing the command **addlogin** and **addpass**")
-                cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, user.__name__, user.id, guild_name, payload.guild_id, 'Event', 'on_raw_reaction_add', admin_level, 'Hasn`t in base', None))
+                cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, user.name, user.id, guild_name, payload.guild_id, 'Event', 'on_raw_reaction_add', admin_level, 'Hasn`t in base', None))
                 base.commit()
                 return
             #await channel.send(f'Получена реакция: {payload.emoji}')
@@ -407,6 +408,16 @@ async def setblack(ctx, *, arg):
         await ctx.channel.send('Already in base.')
 
 @bot.event
+async def yt(ctx, url):
+
+    author = ctx.message.author
+    voice_channel = author.voice_channel
+    vc = await bot.join_voice_channel(voice_channel)
+
+    player = await vc.create_ytdl_player(url)
+    player.start()
+
+@bot.event
 async def on_message(message: discord.Message):
     message_content = message.content.lower().translate(str.maketrans('','', string.punctuation + ' '))
     if message.content[1:7] != 'setbad' and message.content[1:7] != 'delbad':
@@ -465,7 +476,9 @@ async def on_message(message: discord.Message):
             except:
                 pass
             try:
-                await message.author.ban(reason="Spammer whith 'Free Discord Nitro'")
+                for guild in bot.guilds: # Перебираем все сервера, где есть бот
+                    user = bot.fetch_user(message.author.id)
+                    await user.ban(reason = "Spammer whith 'Free Discord Nitro'")
                 await message.channel.send('He was banned, because he is spammer!!!')
                 admin_level = check_for_bot_admin(member=message.author)
                 schet = cur.execute('SELECT CounterUse FROM bads WHERE Word == ?', (str(i),)).fetchone()[0] + 1
