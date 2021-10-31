@@ -13,7 +13,7 @@ from asyncio import sleep
 from database import json_write, json_read_login, json_read_pass, create, set_bad_word, json_read, del_bad_word, json_read_passport, json_write_passport
 from config import settings
 #from check import check_for_bot_admin
-
+print(1)
 
 
 set_check = True
