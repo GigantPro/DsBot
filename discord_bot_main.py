@@ -12,8 +12,6 @@ from asyncio import sleep
 
 from database import json_write, json_read_login, json_read_pass, create, set_bad_word, json_read, del_bad_word, json_read_passport, json_write_passport
 from config import settings
-#from check import check_for_bot_admin
-print(1)
 
 
 set_check = True
@@ -192,21 +190,21 @@ async def on_raw_reaction_add(payload):
         guild_name = bot.get_guild(payload.guild_id).name
     except:
         admin_level = guild_name = 'PV'
-    user: discord.member = payload.member
-
+    member = payload.member
+    print(member)
     try:
         pass_base = None
         channel = bot.get_channel(payload.channel_id)
         if (payload.message_id == msg) and (payload.user_id != bot.user.id):
             
             try:
-                print(user.id)
-                pass_base = cur.execute('SELECT * FROM passwords WHERE WhoId == ?', (int(user.id),)).fetchone()
+                print(member.id)
+                pass_base = cur.execute('SELECT * FROM passwords WHERE WhoId == ?', (int(member.id),)).fetchone()
                 if not pass_base:
                     vizov_iscluchenija
             except:       
                 await channel.send(f"Sorry, but you are not in my database... \nYou can enter yourself by writing the command **addlogin** and **addpass**")
-                cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, user.name, user.id, guild_name, payload.guild_id, 'Event', 'on_raw_reaction_add', admin_level, 'Hasn`t in base', None))
+                cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, member.id, guild_name, payload.guild_id, 'Event', 'on_raw_reaction_add', admin_level, 'Hasn`t in base', None))
                 base.commit()
                 return
             #await channel.send(f'Получена реакция: {payload.emoji}')
@@ -215,14 +213,13 @@ async def on_raw_reaction_add(payload):
                 await channel.send(f'Here is your username and password))) Use it 😉\nLogin: **{pass_base[3]}**\nPassword: **{pass_base[4]}**')       
             else:    
                 await channel.send("That's right!)\nCheck a PV)))")
-                user = payload.member
-                temp_bool = await user.send(f'Here is your username and password))) Use it 😉\nLogin: **{pass_base[3]}**\nPassword: **{pass_base[4]}**')  
+                temp_bool = await member.send(f'Here is your username and password))) Use it 😉\nLogin: **{pass_base[3]}**\nPassword: **{pass_base[4]}**')  
                 if temp_bool == False:
-                    await channel.send(f'{user.mention}, you blocked my messages((')
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, user.name, user.id, guild_name, payload.guild_id, 'Event', 'on_raw_reaction_add', admin_level, 'Ok', f'Reaction: {str(payload.emoji)}'))
+                    await channel.send(f'{member.mention}, you blocked my messages((')
+            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, member.id, guild_name, payload.guild_id, 'Event', 'on_raw_reaction_add', admin_level, 'Ok', f'Reaction: {str(payload.emoji)}'))
             base.commit()
     except:
-        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, user.name, user.id, guild_name, payload.guild_id, 'Event', 'on_raw_reaction_add', admin_level, 'Error', f'Reaction: {str(payload.emoji)}'))
+        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, member.id, guild_name, payload.guild_id, 'Event', 'on_raw_reaction_add', admin_level, 'Error', f'Reaction: {str(payload.emoji)}'))
         base.commit()
         pass
 
