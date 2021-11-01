@@ -10,8 +10,20 @@ import os, sqlite3
 from datetime import datetime
 from asyncio import sleep
 
+'''
+НЕМНОГО О КАРТИНКАХ:
+https://cdn.discordapp.com/attachments/904289207739093013/904688195873148938/hz.jpg   - хз что
+https://cdn.discordapp.com/attachments/867495470989443137/878686286368636978/XAbh.gif - гифка скажи друже
+'''
 
-from config import settings
+settings = {
+    'token': 'ODg5MDkyNzA2OTM1MTI4MDc0.YUcOGw.d7Z11d6fR3-otSy0EV_PVxfToDM',
+    'bot': 'Crowbar Bot',
+    'id': 889092706935128074,
+    'prefix': '.',
+    'admin_bot_role': 'Bot Admin'
+}
+
 
 
 set_check = True
@@ -21,8 +33,23 @@ ctx_default_welcome_message_server  = '{member}, hey bro!) Check your private me
 
 
 bot = commands.Bot(command_prefix = settings['prefix'], intents=discord.Intents.all()) # Так как мы указали префикс в settings, обращаемся к словарю с ключом prefix.
-bot.remove_command('help')
-
+#bot.remove_command('help')
+#{settings['prefix']}write - Will write your message on behalf of the bot to the user)))! {settings['prefix']}write @User [message]
+usercommands = f"""**{settings['prefix']}help** - this command
+**{settings['prefix']}help [command]** - help with command
+**{settings['prefix']}hello** - Welcome you
+**{settings['prefix']}repeat** - Will repeat what you write next
+**{settings['prefix']}friend** - Just a fun GIF
+**{settings['prefix']}fire** - Will just send :fire:
+**{settings['prefix']}addlogin** - Add your login to the database
+**{settings['prefix']}addpass** - Add your password to the database
+**{settings['prefix']}passwd** - See your username and password"""
+admincommands = f"""{settings['prefix']}
+{settings['prefix']}
+{settings['prefix']}
+{settings['prefix']}
+{settings['prefix']}
+{settings['prefix']}"""
 def update_time():
     global time_now
     while True:
@@ -68,7 +95,31 @@ def give_max_counter_warns(message: discord.message = None, member: discord.memb
         print('ERROR WITH GIVE COUNTER WARNS WELCOME')
         return None
 
-
+@bot.command()
+async def helpt(ctx, *, arg=None):
+    if not arg:
+        embed = discord.Embed(
+            title = f"Bot prefix ``{settings['prefix']}``",
+            description = usercommands,
+            color = discord.Colour.dark_gold()
+            )
+        await ctx.send(embed=embed)
+        admin_level = check_for_bot_admin(member=ctx.author)
+        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'help', admin_level, 'Ok', None))
+        base.commit()
+    else:
+        list_commands = []
+        for command in bot.commands:
+            list_commands.append(command)
+        if arg in list_commands:
+            pass
+        else:
+            embed = discord.Embed(
+            title = "``I don`t know this command``",#https://meme-arsenal.com/create/meme/5669242
+            color = discord.Colour.dark_gold()
+            )
+            embed.set_image(url='https://cdn.discordapp.com/attachments/904289207739093013/904688195873148938/hz.jpg')
+            await ctx.send(embed=embed)
 @bot.command() # Не передаём аргумент pass_context, так как он был нужен в старых версиях.
 async def hello(ctx): # Создаём функцию и передаём аргумент ctx.
     """Welcome you)))"""
@@ -84,13 +135,13 @@ async def repeat(ctx, *, arg):
     cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'repeat', admin_level, 'Ok', arg))
     base.commit()
 
-@bot.command()
-async def tell(ctx, *, arg):
-    """Will repeat what you write next"""
-    await ctx.send(arg)
-    admin_level = check_for_bot_admin(member=ctx.author)
-    cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'tell', admin_level, 'Ok', arg))
-    base.commit()
+# @bot.command()
+# async def tell(ctx, *, arg):
+#     """Will repeat what you write next"""
+#     await ctx.send(arg)
+#     admin_level = check_for_bot_admin(member=ctx.author)
+#     cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'tell', admin_level, 'Ok', arg))
+#     base.commit()
 
 @bot.command()
 async def write(ctx, member: discord.Member, *, message):
@@ -118,7 +169,7 @@ async def friend(ctx):
     """Just a fun GIF"""
     embed = discord.Embed(
         title="Say friend and the doors will open",
-        color=discord.Colour.blue()
+        color=discord.Colour.dark_gold()
         )
     embed.set_image(url="https://cdn.discordapp.com/attachments/867495470989443137/878686286368636978/XAbh.gif")
     await ctx.send(embed=embed)
@@ -607,4 +658,5 @@ async def on_ready():
     base.commit()
     await bot.change_presence(activity=discord.Game(name=".help"))
     #await bot.change_presence(activity=discord.Streaming(name="My Stream", url='test'))
+
 bot.run(settings['token']) # Обращаемся к словарю settings с ключом token, для получения токена
