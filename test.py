@@ -21,10 +21,12 @@
 #         pass
 #     except:
 #         print('error')
-global i 
-i = 2
-def test():
-    while i < 3:
-        i += 1
-test()
-print(i)
+
+c = 10  
+
+def test(d):
+    global c
+    c = c**2
+    print(d)
+test(c)
+print(c)
