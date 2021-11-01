@@ -21,8 +21,7 @@ settings = {
     'bot': 'Crowbar Bot',
     'id': 889092706935128074,
     'prefix': '.',
-    'admin_bot_role': 'Bot Admin'
-}
+    'admin_bot_role': 'Bot Admin'}
 
 
 
@@ -50,6 +49,7 @@ admincommands = f"""{settings['prefix']}
 {settings['prefix']}
 {settings['prefix']}
 {settings['prefix']}"""
+
 def update_time():
     global time_now
     while True:
@@ -58,20 +58,54 @@ def update_time():
 
 def check_for_bot_admin(message=None, member=None, payload=None):
     if message:
+        if message.author.guild_permissions.administrator:
+            return True
         if get(message.author.roles, name=settings['admin_bot_role']):
             return True
         else:
             return False
     if member:
+        if member.guild_permissions.administrator:
+            return True
         if get(member.roles, name=settings['admin_bot_role']):
             return True
         else:
             return False
     if payload:
+        if payload.member.guild_permissions.administrator:
+            return True
         if get(payload.member.roles, name=settings['admin_bot_role']):
             return True
         else:
             return False
+
+def check_in_db_server(ctx, AdminRole=None, CounterMaxWARNS=5, WelcomeChat=None, WelcomeServerMessage=ctx_default_welcome_message_server, WelcomeMessagePivate=default_welcome_message_private):
+    if not WelcomeChat:
+        WelcomeChat = ctx.guild.channels[1]
+    base = cur.execute('SELECT * FROM servers WHERE ServerID == ?', (ctx.guild.id,)).fetchone()
+    if not base:
+        cur.execute('INSERT INTO servers VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)', (ctx.guild.name, ctx.guild.id, AdminRole, len(ctx.guild.members), CounterMaxWARNS, WelcomeChat.name, WelcomeChat.id, WelcomeServerMessage, WelcomeMessagePivate))
+        base.commit()
+
+def update_in_db_server(ctx, AdminRole=None, CounterMaxWARNS=None, WelcomeChat=None, WelcomeServerMessage=None, WelcomeMessagePivate=None):
+    check_in_db_server(ctx)
+    if AdminRole:
+        cur.execute('UPDATE servers SET AdminRole == ? WHERE ServerID == ?', (str(AdminRole), int(ctx.guild.id)))
+        base.commit()
+    if CounterMaxWARNS:
+        cur.execute('UPDATE servers SET CounterMaxWARNS == ? WHERE ServerID == ?', (CounterMaxWARNS, int(ctx.guild.id)))
+        base.commit()
+    if WelcomeChat:
+        cur.execute('UPDATE servers SET WelcomeChatName == ? WHERE ServerID == ?', (WelcomeChat.name, int(ctx.guild.id)))
+        base.commit()
+        cur.execute('UPDATE servers SET WelcomeChatId == ? WHERE ServerID == ?', (WelcomeChat.id, int(ctx.guild.id)))
+        base.commit()
+    if WelcomeServerMessage:
+        cur.execute('UPDATE servers SET WelcomeServerMessage == ? WHERE ServerID == ?', (str(WelcomeServerMessage), int(ctx.guild.id)))
+        base.commit()
+    if WelcomeMessagePivate:
+        cur.execute('UPDATE servers SET WelcomeMessagePivate == ? WHERE ServerID == ?', (str(WelcomeMessagePivate), int(ctx.guild.id)))
+        base.commit()
 
 def give_max_counter_warns(message: discord.message = None, member: discord.member = None):
     try:
@@ -85,15 +119,24 @@ def give_max_counter_warns(message: discord.message = None, member: discord.memb
             guild_name = member.guild.name
         answer = cur.execute('SELECT * FROM servers WHERE ServerID == ?', (int(guild_id),)).fetchone()
         if answer != None:
-            return int(answer[2])
+            return int(answer[3])
         else:
-            default_welcome_message_private = 'Hello!) I am a friendly server bot) To explore my capabilities, enter the command `{settings["prefix"]}help` )'
-            base.execute('INSERT INTO servers VALUES(?, ?, ?, ?, ?, ?)', (int(guild_id), str(guild_name), 5, int(message.channel.id), default_welcome_message_private, default_welcome_message_private))
-            base.commit()
+            try:
+                check_in_db_server(ctx=message)
+            except:
+                check_in_db_server(ctx=member)
             return 5
     except:
         print('ERROR WITH GIVE COUNTER WARNS WELCOME')
         return None
+
+def log(ctx, WhenTime=time_now, Action='Write', Description=None, ErrorLog='Ok', Comment=None):
+    try:
+        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, 'Bot', None, 'Global', None, 'Start', 'Bot started', 666, 'Ok', None))
+        base.commit()
+    except:
+        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, 'Bot', None, 'Global', None, 'ERROR', 'ERROR WITH LOGS', 666, 'ERROR', None))
+        base.commit()
 
 @bot.command()
 async def helpt(ctx, *, arg=None):
@@ -147,22 +190,22 @@ async def repeat(ctx, *, arg):
 async def write(ctx, member: discord.Member, *, message):
     """Will write your message on behalf of the bot to the user)))! Write @User a message"""
     author = ctx.message.author
-    #if check_for_bot_admin(author) == True:
-    try:
-        await member.send(message)
-        admin_level = check_for_bot_admin(member=ctx.author)
-        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'write', admin_level, 'Ok', 'Send to: ' + member.display_name))
-        base.commit()
-    except: # this will error if the user has blocked the bot or has server dms disabled
-        await ctx.send(f"Sadly (((This user has forbidden to send him messages (((")
-        admin_level = check_for_bot_admin(member=ctx.author)
-        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'write', admin_level, 'Ok', 'Can`t send to: ' + member.display_name))
-        base.commit()
-    else:
-        await ctx.send(f"It was possible to send a message to {member}!")
+    if check_for_bot_admin(author) == True:
+        try:
+            await member.send(message)
+            admin_level = check_for_bot_admin(member=ctx.author)
+            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'write', admin_level, 'Ok', 'Send to: ' + member.display_name))
+            base.commit()
+        except: # this will error if the user has blocked the bot or has server dms disabled
+            await ctx.send(f"Sadly (((This user has forbidden to send him messages (((")
+            admin_level = check_for_bot_admin(member=ctx.author)
+            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'write', admin_level, 'Ok', 'Can`t send to: ' + member.display_name))
+            base.commit()
+        else:
+            await ctx.send(f"It was possible to send a message to {member}!")
 
-    #else:
-        #await ctx.send(f'{author.mention}, you do not have sufficient rights for this operation ...')
+    else:
+        await ctx.send(f'{author.mention}, you do not have sufficient rights for this operation ...')
         
 @bot.command(aliases=["rule34"])   #aliases=["rule34"]
 async def friend(ctx):
@@ -243,14 +286,12 @@ async def on_raw_reaction_add(payload):
     except:
         admin_level = guild_name = 'PV'
     member = payload.member
-    print(member)
     try:
         pass_base = None
         channel = bot.get_channel(payload.channel_id)
         if (payload.message_id == msg) and (payload.user_id != bot.user.id):
             
             try:
-                print(member.id)
                 pass_base = cur.execute('SELECT * FROM passwords WHERE WhoId == ?', (int(member.id),)).fetchone()
                 if not pass_base:
                     vizov_iscluchenija
@@ -277,8 +318,8 @@ async def on_raw_reaction_add(payload):
 
 @bot.command()
 async def setbad(ctx, *, arg):
-        '''Set bad word into the black list'''
-    #if check_for_bot_admin(ctx) == True:
+    '''Set bad word into the black list'''
+    if check_for_bot_admin(ctx) == True:
         await ctx.message.delete()
         try:
             base.execute('INSERT INTO bads VALUES(?, ?)', (str(arg).lower(), 0))
@@ -296,10 +337,9 @@ async def setbad(ctx, *, arg):
             admin_level = check_for_bot_admin(member=ctx.author)
             cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setbad: ' + arg.lower(), admin_level, 'Ok', None))
             base.commit()
-        
-    #else:
-     #   await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
-     #   await ctx.message.delete()  
+    else:
+        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
+        await ctx.message.delete()  
 
 @bot.command()
 async def delbad(ctx, *, arg):
@@ -330,17 +370,11 @@ async def delbad(ctx, *, arg):
 async def setwelcomechannel(ctx, channel: discord.TextChannel):
     '''Set welcome channel'''
     await ctx.message.delete()
-    if check_for_bot_admin(ctx) == True:
-        try:
-            cur.execute('UPDATE servers SET WelcomeChat == ? WHERE ServerID == ?', (channel.id, ctx.guild.id))
-            base.commit()
-            await ctx.send("Welcome chat was update)))")
-        except:
-            cur.execute('INSERT INTO servers VALUES(?, ? , ?, ?, ?, ?)', (int(ctx.guild.id), str(ctx.guild.name), 5, int(channel.id), ctx_default_welcome_message_server, default_welcome_message_private))
-            base.commit()
-            await ctx.send("Welcome chat was update)))")
+    if check_for_bot_admin(message=ctx) == True:
+        update_in_db_server(ctx=ctx, WelcomeChat=channel)
+        await ctx.send("Welcome chat was update)))")
         admin_level = check_for_bot_admin(member=ctx.author)
-        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.guild.name, ctx.guild.id, 'Use', 'setwelcomechannel: ' + channel.name + ' ' + channel.id, admin_level, 'Ok', None))
+        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, ctx.author.id, ctx.guild.name, ctx.guild.id, 'Use', 'setwelcomechannel: ' + channel.name + ' ' + channel.id, admin_level, 'Ok', None))
         base.commit()
     else:
         await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
@@ -354,15 +388,7 @@ async def setwelcomemessageserver(ctx, *, arg):
     '''Set welcome message'''
     if check_for_bot_admin(ctx) == True:
         try:
-            idserv = ctx.guild.id
-            answer = cur.execute('SELECT * FROM servers WHERE ServerID == ?', (int(idserv),)).fetchone()
-            if answer != None:
-                cur.execute('UPDATE servers SET WelcomeServerMessage == ? WHERE ServerID == ?', (str(arg), int(idserv)))
-                base.commit()
-            else:
-                idserv = ctx.guild.id
-                base.execute('INSERT INTO servers VALUES(?, ?, ?, ?, ?, ?)', (int(idserv), str(ctx.guild.name), 5, int(ctx.channel.id), str(arg), default_welcome_message_private))
-                base.commit()
+            check_in_db_server(ctx=ctx, WelcomeServerMessage=arg)
             await ctx.send("Welcome message was update)))")
             admin_level = check_for_bot_admin(member=ctx.author)
             cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setwelcomemessageserver: ' + arg, admin_level, 'Ok', None))
@@ -384,22 +410,12 @@ async def setwelcomemessageserver(ctx, *, arg):
 async def setwelcomemessageprivate(ctx, *, arg):
     '''Set welcome message'''
     if check_for_bot_admin(ctx) == True:
-        
         try:
-            idserv = ctx.guild.id
-            answer = cur.execute('SELECT * FROM servers WHERE ServerID == ?', (int(idserv),)).fetchone()
-            if answer != None:
-                cur.execute('UPDATE servers SET WelcomePrivateMessage == ? WHERE ServerID == ?', (str(arg), int(idserv)))
-                base.commit()
-            else:
-                idserv = ctx.guild.id
-                base.execute('INSERT INTO servers VALUES(?, ?, ?, ?, ?, ?)', (int(idserv), str(ctx.guild.name), 5, int(ctx.channel.id), default_welcome_message_private, str(arg)))
-                base.commit()
+            check_in_db_server(ctx=ctx, WelcomeMessagePivate=arg)
             await ctx.send("Welcome message was update)))")
             admin_level = check_for_bot_admin(member=ctx.author)
             cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setwelcomemessageprivate: ' + arg, admin_level, 'Ok', None))
             base.commit()
-            
         except:                                             #ErrorLog: 2
             print('ERROR WITH UPDATE PRIVATE WELCOME')
             await ctx.send("ERROR")
@@ -427,12 +443,7 @@ async def setmaxwarnslimit(ctx, arg):
         return
     if check_for_bot_admin(ctx) == True: 
         try:
-            try:
-                cur.execute('UPDATE servers SET CounterMaxWARNS == ? WHERE ServerID == ?', (int(arg), ctx.guild.id))
-                base.commit()
-            except:
-                cur.execute('INSERT INTO servers VALUES(?, ? , ?, ?, ?, ?)', (int(ctx.guild.id), str(ctx.guild.name), int(arg), int(ctx.channel.id), ctx_default_welcome_message_server, default_welcome_message_private))
-                base.commit()
+            update_in_db_server(ctx=ctx, CounterMaxWARNS=arg)
         except:                         #ErrorLog: 1
             await ctx.send('ERROR')
             admin_level = check_for_bot_admin(member=ctx.author)
@@ -449,6 +460,9 @@ async def setmaxwarnslimit(ctx, arg):
 
 @bot.command()
 async def setblack(ctx, *, arg):
+    ctx.message.delete()
+    if ctx.author.id != 561181047317069827:
+        ctx.send('You aren`t developer!!!')
     try:
         cur.execute('INSERT INTO blacklist VALUES(?, ?)', (str(arg), 0))
         base.commit()
@@ -543,6 +557,7 @@ async def on_message(message: discord.Message):
                 base.commit()
                 break
     await bot.process_commands(message)
+    check_in_db_server(ctx=message)
     admin_level = check_for_bot_admin(message=message)
     cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, message.author.name, int(message.author.id), message.author.guild.name, message.author.guild.id, 'Write', message.content, admin_level, 'Ok', None))
     base.commit()
@@ -578,7 +593,7 @@ async def on_member_join(member):
     answer = cur.execute('SELECT * FROM warns WHERE MemberID == ?', (int(idperson),)).fetchone()
     if answer != None:
         arg = int(answer[2])
-        max_counter_warns = give_max_counter_warns(None, member)
+        max_counter_warns = give_max_counter_warns(member=member)
         if arg >= max_counter_warns:
             #await message.author.ban(reason= "{}: {}".format(message.author, "Warning limit reached"))
             await member.kick(reason= "{}: {}".format(member, "Warning limit reached"))
@@ -644,7 +659,7 @@ async def on_ready():
         print('OK')
     base.execute('CREATE TABLE IF NOT EXISTS {}(MemberID PRIMARY KEY, MemberName, CounterWARNS)'.format('warns'))
     base.commit()
-    base.execute('CREATE TABLE IF NOT EXISTS {}(ServerID PRIMARY KEY, ServerName, CounterMaxWARNS, WelcomeChat, WelcomeServerMessage, WelcomeMessagePivate)'.format('servers'))
+    base.execute('CREATE TABLE IF NOT EXISTS {}(ServerName, ServerID PRIMARY KEY, AdminRole, CounterMembers, CounterMaxWARNS, WelcomeChatName, WelcomeChatId, WelcomeServerMessage, WelcomeMessagePivate)'.format('servers'))#9
     base.commit()
     base.execute('CREATE TABLE IF NOT EXISTS {}(Word PRIMARY KEY, CounterUse)'.format('bads'))
     base.commit()
