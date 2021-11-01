@@ -10,7 +10,7 @@ import os, sqlite3
 from datetime import datetime
 from asyncio import sleep
 
-from database import json_write, json_read_login, json_read_pass, create, set_bad_word, json_read, del_bad_word, json_read_passport, json_write_passport
+
 from config import settings
 
 
@@ -21,6 +21,7 @@ ctx_default_welcome_message_server  = '{member}, hey bro!) Check your private me
 
 
 bot = commands.Bot(command_prefix = settings['prefix'], intents=discord.Intents.all()) # Так как мы указали префикс в settings, обращаемся к словарю с ключом prefix.
+bot.remove_command('help')
 
 def update_time():
     global time_now
@@ -404,15 +405,15 @@ async def setblack(ctx, *, arg):
     except:
         await ctx.channel.send('Already in base.')
 
-@bot.event
-async def yt(ctx, url):
+# @bot.event
+# async def yt(ctx, url):
 
-    author = ctx.message.author
-    voice_channel = author.voice_channel
-    vc = await bot.join_voice_channel(voice_channel)
+#     author = ctx.message.author
+#     voice_channel = author.voice_channel
+#     vc = await bot.join_voice_channel(voice_channel)
 
-    player = await vc.create_ytdl_player(url)
-    player.start()
+#     player = await vc.create_ytdl_player(url)
+#     player.start()
 
 @bot.event
 async def on_message(message: discord.Message):
