@@ -4,6 +4,7 @@ import discord
 from discord import guild
 from datetime import date, datetime
 from discord.ext import commands
+from discord.raw_models import RawMessageUpdateEvent
 from discord.utils import get
 import string
 import os, sqlite3
@@ -17,10 +18,10 @@ https://cdn.discordapp.com/attachments/867495470989443137/878686286368636978/XAb
 '''
 
 settings = {
-    'token': 'ODg5MDkyNzA2OTM1MTI4MDc0.YUcOGw.d7Z11d6fR3-otSy0EV_PVxfToDM',
+    'token': 'ODg5MDkyNzA2OTM1MTI4MDc0.YUcOGw.IQVUrV52SsdfnT-sZxAVBxXiAEs',
     'bot': 'Crowbar Bot',
     'id': 889092706935128074,
-    'prefix': '.',
+    'prefix': 'ct!',
     'admin_bot_role': 'Bot Admin'}
 
 
@@ -32,7 +33,7 @@ ctx_default_welcome_message_server  = '{member}, hey bro!) Check your private me
 
 
 bot = commands.Bot(command_prefix = settings['prefix'], intents=discord.Intents.all()) # Так как мы указали префикс в settings, обращаемся к словарю с ключом prefix.
-#bot.remove_command('help')
+bot.remove_command('help')
 #{settings['prefix']}write - Will write your message on behalf of the bot to the user)))! {settings['prefix']}write @User [message]
 usercommands = f"""**{settings['prefix']}help** - this command
 **{settings['prefix']}help [command]** - help with command
@@ -80,9 +81,8 @@ def check_for_bot_admin(message=None, member=None, payload=None):
             return False
 
 def check_in_db_server(ctx, AdminRole=None, CounterMaxWARNS=5, WelcomeChat=None, WelcomeServerMessage=ctx_default_welcome_message_server, WelcomeMessagePivate=default_welcome_message_private):
-    if not WelcomeChat:
-        WelcomeChat = ctx.guild.channels[1]
     base = cur.execute('SELECT * FROM servers WHERE ServerID == ?', (ctx.guild.id,)).fetchone()
+    print(base)
     if not base:
         cur.execute('INSERT INTO servers VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)', (ctx.guild.name, ctx.guild.id, AdminRole, len(ctx.guild.members), CounterMaxWARNS, WelcomeChat.name, WelcomeChat.id, WelcomeServerMessage, WelcomeMessagePivate))
         base.commit()
@@ -130,103 +130,187 @@ def give_max_counter_warns(message: discord.message = None, member: discord.memb
         print('ERROR WITH GIVE COUNTER WARNS WELCOME')
         return None
 
-def log(ctx, WhenTime=time_now, Action='Write', Description=None, ErrorLog='Ok', Comment=None):
+def log(ctx=None, member=None, Action='Use', Description=None, ErrorLog='Ok', Comment=None):
+    admin_status = None
     try:
-        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, 'Bot', None, 'Global', None, 'Start', 'Bot started', 666, 'Ok', None))
+        admin_status = check_for_bot_admin(message=ctx)
+    except:
+        admin_status = check_for_bot_admin(member=member)
+    try:
+        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, ctx.author.id, ctx.guild.name, ctx.guild.id, Action, Description, admin_status, ErrorLog, Comment))
         base.commit()
     except:
-        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, 'Bot', None, 'Global', None, 'ERROR', 'ERROR WITH LOGS', 666, 'ERROR', None))
-        base.commit()
+        try:
+            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, member.id, member.guild.name, member.guild.id, Action, Description, admin_status, ErrorLog, Comment))
+            base.commit()
+        except:
+            print('Error with logs')
+            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, 'Bot', None, 'Global', None, 'ERROR', 'ERROR WITH LOGS', 666, 'ERROR', None))
+            base.commit()
 
 @bot.command()
-async def helpt(ctx, *, arg=None):
+async def help(ctx, *, arg=None):
+    await ctx.message.delete()
     if not arg:
         embed = discord.Embed(
             title = f"Bot prefix ``{settings['prefix']}``",
             description = usercommands,
-            color = discord.Colour.dark_gold()
-            )
+            color = discord.Colour.dark_gold())
         await ctx.send(embed=embed)
-        admin_level = check_for_bot_admin(member=ctx.author)
-        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'help', admin_level, 'Ok', None))
-        base.commit()
     else:
         list_commands = []
         for command in bot.commands:
-            list_commands.append(command)
-        if arg in list_commands:
-            pass
-        else:
+            list_commands.append(command.name)
+        print(list_commands)
+        if not(arg in list_commands):
             embed = discord.Embed(
-            title = "``I don`t know this command``",#https://meme-arsenal.com/create/meme/5669242
-            color = discord.Colour.dark_gold()
-            )
+            title = "``I don`t know this command``",
+            color = discord.Colour.dark_gold())
             embed.set_image(url='https://cdn.discordapp.com/attachments/904289207739093013/904688195873148938/hz.jpg')
             await ctx.send(embed=embed)
+        else:
+            if arg == 'hello':
+                embed = discord.Embed(
+                title = "Command ``hello``",
+                color = discord.Colour.dark_gold(),
+                description = 'This command will welcome you.')
+                await ctx.send(embed=embed)
+            if arg == 'repeat':
+                embed = discord.Embed(
+                title = "Command ``repeat``",
+                color = discord.Colour.dark_gold(),
+                description = 'Bot will repeat your text.')
+                await ctx.send(embed=embed)
+            if arg == 'write':
+                embed = discord.Embed(
+                title = "Command ``write``",
+                color = discord.Colour.dark_gold(),
+                description = f'Bot will send to user your text. \nBut it`s command only for admins.\nExample: {settings["prefix"]}write [WHO] [TEXT]')
+                await ctx.send(embed=embed)
+            if arg == 'friend':
+                embed = discord.Embed(
+                title = "Command ``friend``",
+                color = discord.Colour.dark_gold(),
+                description = 'Just a fun GIF)')
+                await ctx.send(embed=embed)
+            if arg == 'fire':
+                embed = discord.Embed(
+                title = "Command ``fire``",
+                color = discord.Colour.dark_gold(),
+                description = 'Will just send :fire:')
+                await ctx.send(embed=embed)
+            if arg == 'addlogin':
+                embed = discord.Embed(
+                title = "Command ``addlogin``",
+                color = discord.Colour.dark_gold(),
+                description = f'With this command you can add your login to the database.\nExample: {settings["prefix"]}addlogin [YOUR LOGIN]')
+                await ctx.send(embed=embed)
+            if arg == 'addpass':
+                embed = discord.Embed(
+                title = "Command ``addpass``",
+                color = discord.Colour.dark_gold(),
+                description = f'With this command you can add your password to the database.\nExample: {settings["prefix"]}addlogin [YOUR PASS]')
+                await ctx.send(embed=embed)
+            if arg == 'passwd':
+                embed = discord.Embed(
+                title = "Command ``passwd``",
+                color = discord.Colour.dark_gold(),
+                description = 'You can see your login and password.')
+                await ctx.send(embed=embed)
+            if arg == 'setbad':
+                embed = discord.Embed(
+                title = "Command ``setbad``",
+                color = discord.Colour.dark_gold(),
+                description = f'Set bad word into the data base\nBut it`s command only for admins.\nExample: {settings["prefix"]}setbad [BAD WORD]')
+                await ctx.send(embed=embed)
+            if arg == 'delbad':
+                embed = discord.Embed(
+                title = "Command ``delbad``",
+                color = discord.Colour.dark_gold(),
+                description = f'Delete bad word from the data base\nBut it`s command only for admins.\nExample: {settings["prefix"]}delbad [BAD WORD]')
+                await ctx.send(embed=embed)
+            if arg == 'setwelcomechannel':
+                embed = discord.Embed(
+                title = "Command ``setwelcomechannel``",
+                color = discord.Colour.dark_gold(),
+                description = f'Set welcome channel.\nBut it`s command only for admins.\nExample: {settings["prefix"]}setwelcomechannel [#CHANNEL]')
+                await ctx.send(embed=embed)
+            if arg == 'setwelcomemessageserver':
+                embed = discord.Embed(
+                title = "Command ``setwelcomemessageserver``",
+                color = discord.Colour.dark_gold(),
+                description = f'Set welcome message in server.\nBut it`s command only for admins.\nExample: {settings["prefix"]}setwelcomemessageserver [TEXT]')
+                await ctx.send(embed=embed)
+            if arg == 'setwelcomemessageprivate':
+                embed = discord.Embed(
+                title = "Command ``setwelcomemessageprivate``",
+                color = discord.Colour.dark_gold(),
+                description = f'Set welcome message in PV.\nBut it`s command only for admins.\nExample: {settings["prefix"]}setwelcomemessageprivate [TEXT]')
+                await ctx.send(embed=embed)
+            if arg == 'setmaxwarnslimit':
+                embed = discord.Embed(
+                title = "Command ``setmaxwarnslimit``",
+                color = discord.Colour.dark_gold(),
+                description = f'Set max warns limit in server.\nBut it`s command only for admins.\nExample: {settings["prefix"]}setmaxwarnslimit [NUM]')
+                await ctx.send(embed=embed)
+            if arg == 'setblack':
+                embed = discord.Embed(
+                title = "Command ``setblack``",
+                color = discord.Colour.dark_gold(),
+                description = 'This is a secret command that can only be used by the bot creator. \nThis command will add a word or more to the BLACK LIST. \nIf someone writes these words, they will immediately be banned everywhere. \nFor example, for fraudulent links such as with free nitro')
+                await ctx.send(embed=embed)
+
+            
+    log(ctx=ctx, Description='help', Comment=ctx.message.content)
+
 @bot.command() # Не передаём аргумент pass_context, так как он был нужен в старых версиях.
 async def hello(ctx): # Создаём функцию и передаём аргумент ctx.
     """Welcome you)))"""
+    await ctx.message.delete()
     author = ctx.message.author # Объявляем переменную author и записываем туда информацию об авторе.
-
     await ctx.send(f'Hello, {author.mention}!') # Выводим сообщение с упоминанием автора, обращаясь к переменной author.
+    log(ctx=ctx, Description='hello', Comment=ctx.message.content)
 
 @bot.command()
 async def repeat(ctx, *, arg):
     """Will repeat what you write next"""
+    await ctx.message.delete()
     await ctx.send(arg)
-    admin_level = check_for_bot_admin(member=ctx.author)
-    cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'repeat', admin_level, 'Ok', arg))
-    base.commit()
-
-# @bot.command()
-# async def tell(ctx, *, arg):
-#     """Will repeat what you write next"""
-#     await ctx.send(arg)
-#     admin_level = check_for_bot_admin(member=ctx.author)
-#     cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'tell', admin_level, 'Ok', arg))
-#     base.commit()
+    log(ctx=ctx, Description='repeat', Comment=ctx.message.content)
 
 @bot.command()
 async def write(ctx, member: discord.Member, *, message):
     """Will write your message on behalf of the bot to the user)))! Write @User a message"""
+    await ctx.message.delete()
     author = ctx.message.author
     if check_for_bot_admin(author) == True:
         try:
             await member.send(message)
-            admin_level = check_for_bot_admin(member=ctx.author)
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'write', admin_level, 'Ok', 'Send to: ' + member.display_name))
-            base.commit()
         except: # this will error if the user has blocked the bot or has server dms disabled
             await ctx.send(f"Sadly (((This user has forbidden to send him messages (((")
-            admin_level = check_for_bot_admin(member=ctx.author)
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'write', admin_level, 'Ok', 'Can`t send to: ' + member.display_name))
-            base.commit()
         else:
             await ctx.send(f"It was possible to send a message to {member}!")
-
     else:
         await ctx.send(f'{author.mention}, you do not have sufficient rights for this operation ...')
-        
+    log(ctx=ctx, Description='write', Comment=ctx.message.content)
+
 @bot.command(aliases=["rule34"])   #aliases=["rule34"]
 async def friend(ctx):
     """Just a fun GIF"""
+    await ctx.message.delete()
     embed = discord.Embed(
         title="Say friend and the doors will open",
-        color=discord.Colour.dark_gold()
-        )
+        color=discord.Colour.dark_gold())
     embed.set_image(url="https://cdn.discordapp.com/attachments/867495470989443137/878686286368636978/XAbh.gif")
     await ctx.send(embed=embed)
-    admin_level = check_for_bot_admin(member=ctx.author)
-    cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'friend', admin_level, 'Ok', None))
-    base.commit()
+    log(ctx=ctx, Description='friend', Comment=ctx.message.content)
     
 @bot.command()
 async def fire(ctx):
     """Will just send :fire:"""
+    await ctx.message.delete()
     await ctx.send(f":fire:")
-    admin_level = check_for_bot_admin(member=ctx.author)
-    cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'fire', admin_level, 'Ok', None))
-    base.commit()
+    log(ctx=ctx, Description='fire', Comment=ctx.message.content)
 
 async def print_for_user(member: discord.Member, message):
     try:
@@ -239,6 +323,7 @@ async def print_for_user(member: discord.Member, message):
 @bot.command()
 async def addlogin(ctx, *, login):
     """With this command you can add your login to the database"""
+    await ctx.message.delete()
     try:
         cur.execute('UPDATE passwords SET Login == ? WHERE WhoId == ?', (str(login), int(ctx.author.id)))
         base.commit()
@@ -247,13 +332,12 @@ async def addlogin(ctx, *, login):
         cur.execute('INSERT INTO passwords VALUES(?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), str(login), None))
         base.commit()
         await ctx.send(f"Your login has been added, but there is no password ... You can enter the '{settings['prefix']}addpass' and add it")
-    admin_level = check_for_bot_admin(member=ctx.author)
-    cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'addpass', admin_level, 'Ok', None))
-    base.commit()
+    log(ctx=ctx, Description='addlogin', Comment=ctx.message.content)
 
 @bot.command()
 async def addpass(ctx, *, login):
     """With this command you can add your password to the database"""
+    await ctx.message.delete()
     try:  
         base.execute('INSERT INTO passwords VALUES(?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), None, str(login)))
         base.commit()
@@ -262,21 +346,18 @@ async def addpass(ctx, *, login):
         base.execute('UPDATE passwords SET Password == ? WHERE WhoId == ?', (str(login), int(ctx.author.id)))
         base.commit()
         await ctx.send(f"Your password has been updated))))\nOnly **YOU** will be able to find it out (unless it's a server ...))))")
-    admin_level = check_for_bot_admin(member=ctx.author)
-    base.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'addpass', admin_level, 'Ok', None))
-    base.commit()
+    log(ctx=ctx, Description='addpass', Comment=ctx.message.content)
 
 @bot.command()
 async def passwd(ctx):
     """With this command you can see your username and password"""
+    await ctx.message.delete()
     global msg
     await ctx.send('Send here?')
     msg = ctx.message.id
     for emoji in ['☑', '🚫']:
        await ctx.message.add_reaction(emoji)
-    admin_level = check_for_bot_admin(member=ctx.author)
-    cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'passwd', admin_level, 'Ok', None))
-    base.commit()
+    log(ctx=ctx, Description='passwd', Comment=ctx.message.content)
 
 @bot.event
 async def on_raw_reaction_add(payload):
@@ -297,8 +378,6 @@ async def on_raw_reaction_add(payload):
                     vizov_iscluchenija
             except:       
                 await channel.send(f"Sorry, but you are not in my database... \nYou can enter yourself by writing the command **addlogin** and **addpass**")
-                cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, member.id, guild_name, payload.guild_id, 'Event', 'on_raw_reaction_add', admin_level, 'Hasn`t in base', None))
-                base.commit()
                 return
             #await channel.send(f'Получена реакция: {payload.emoji}')
             if f'{str(payload.emoji)}' == '☑':        
@@ -309,37 +388,27 @@ async def on_raw_reaction_add(payload):
                 temp_bool = await member.send(f'Here is your username and password))) Use it 😉\nLogin: **{pass_base[3]}**\nPassword: **{pass_base[4]}**')  
                 if temp_bool == False:
                     await channel.send(f'{member.mention}, you blocked my messages((')
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, member.id, guild_name, payload.guild_id, 'Event', 'on_raw_reaction_add', admin_level, 'Ok', f'Reaction: {str(payload.emoji)}'))
-            base.commit()
     except:
-        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, member.id, guild_name, payload.guild_id, 'Event', 'on_raw_reaction_add', admin_level, 'Error', f'Reaction: {str(payload.emoji)}'))
-        base.commit()
         pass
+    log(ctx=payload, Description='on_raw_reaction_add', Comment=f'Reaction: {str(payload.emoji)}', Action='Event')
 
 @bot.command()
 async def setbad(ctx, *, arg):
     '''Set bad word into the black list'''
+    await ctx.message.delete()
     if check_for_bot_admin(ctx) == True:
         await ctx.message.delete()
         try:
             base.execute('INSERT INTO bads VALUES(?, ?)', (str(arg).lower(), 0))
             base.commit()
-            admin_level = check_for_bot_admin(member=ctx.author)
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setbad: ' + arg.lower(), admin_level, 'Ok', None))
-            base.commit()
         except:
             await ctx.send("This word is already in the database.")
-            admin_level = check_for_bot_admin(member=ctx.author)
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setbad: ' + arg.lower(), admin_level, 'Ok', 'Was in base'))
-            base.commit()
         else:
             await ctx.send("Bad word set to data base)))")
-            admin_level = check_for_bot_admin(member=ctx.author)
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setbad: ' + arg.lower(), admin_level, 'Ok', None))
-            base.commit()
     else:
         await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
         await ctx.message.delete()  
+    log(ctx=ctx, Description='setbad', Comment=ctx.message.content)
 
 @bot.command()
 async def delbad(ctx, *, arg):
@@ -351,20 +420,12 @@ async def delbad(ctx, *, arg):
             base.commit()
         except:
             await ctx.send('Bad word wasn`t in base.')
-            admin_level = check_for_bot_admin(member=ctx.author)
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'delbad: ' + arg, admin_level, 'Ok', 'Hasn`t word in base'))
-            base.commit()
         else:
             await ctx.send("Bad word delete from data base.")
-            admin_level = check_for_bot_admin(member=ctx.author)
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'delbad: ' + arg, admin_level, 'Ok', None))
-            base.commit()
     else:
         await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
         await ctx.message.delete()
-        admin_level = check_for_bot_admin(member=ctx.author)
-        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'delbad: ' + arg, admin_level, 'Ok', 'Hasn`t admin Status'))
-        base.commit()
+    log(ctx=ctx, Description='delbad', Comment=ctx.message.content)
     
 @bot.command()
 async def setwelcomechannel(ctx, channel: discord.TextChannel):
@@ -373,66 +434,43 @@ async def setwelcomechannel(ctx, channel: discord.TextChannel):
     if check_for_bot_admin(message=ctx) == True:
         update_in_db_server(ctx=ctx, WelcomeChat=channel)
         await ctx.send("Welcome chat was update)))")
-        admin_level = check_for_bot_admin(member=ctx.author)
-        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, ctx.author.id, ctx.guild.name, ctx.guild.id, 'Use', 'setwelcomechannel: ' + channel.name + ' ' + channel.id, admin_level, 'Ok', None))
-        base.commit()
     else:
         await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
-        
-        admin_level = check_for_bot_admin(member=ctx.author)
-        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setwelcomechannel: ' + channel.name + ' ' + channel.id, admin_level, 'Ok', 'Hasn`t admin Status'))
-        base.commit()
+    log(ctx=ctx, Description='setwelcomechannel', Comment=ctx.message.content)
 
 @bot.command()
 async def setwelcomemessageserver(ctx, *, arg):
     '''Set welcome message'''
+    await ctx.message.delete()
     if check_for_bot_admin(ctx) == True:
         try:
             check_in_db_server(ctx=ctx, WelcomeServerMessage=arg)
             await ctx.send("Welcome message was update)))")
-            admin_level = check_for_bot_admin(member=ctx.author)
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setwelcomemessageserver: ' + arg, admin_level, 'Ok', None))
-            base.commit()
         except:
             print('ERROR WITH UPDATE SERVER WELCOME')
             await ctx.send("ERROR")                                         #ErrorLog 1
-            admin_level = check_for_bot_admin(member=ctx.author)    
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setwelcomemessageserver: ' + arg, admin_level, 'ERROR', 'ErrorLog: 1'))
-            base.commit()
     else:
         await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
-        await ctx.message.delete()
-        admin_level = check_for_bot_admin(member=ctx.author)
-        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setwelcomemessageserver: ' + arg, admin_level, 'Ok', 'Hasn`t admin Status'))
-        base.commit()
+    log(ctx=ctx, Description='setwelcomemessageserver', Comment=ctx.message.content)
 
 @bot.command()
 async def setwelcomemessageprivate(ctx, *, arg):
     '''Set welcome message'''
+    await ctx.message.delete()
     if check_for_bot_admin(ctx) == True:
         try:
             check_in_db_server(ctx=ctx, WelcomeMessagePivate=arg)
             await ctx.send("Welcome message was update)))")
-            admin_level = check_for_bot_admin(member=ctx.author)
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setwelcomemessageprivate: ' + arg, admin_level, 'Ok', None))
-            base.commit()
         except:                                             #ErrorLog: 2
             print('ERROR WITH UPDATE PRIVATE WELCOME')
             await ctx.send("ERROR")
-            admin_level = check_for_bot_admin(member=ctx.author)
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setwelcomemessageprivate: ' + arg, admin_level, 'ERROR', 'ErrorLog: 2'))
-            base.commit()
     else:
         await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
-        await ctx.message.delete()
-        admin_level = check_for_bot_admin(member=ctx.author)
-        cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setwelcomemessageprivate: ' + arg, admin_level, 'Ok', 'Hasn`t admin Status'))
-        base.commit()
+    log(ctx=ctx, Description='setwelcomemessageprivate', Comment=ctx.message.content)
 
 @bot.command()
 async def setmaxwarnslimit(ctx, arg):
     '''Set max warns limit'''
-
     await ctx.message.delete()
     try:
         if int(arg) <= 0:
@@ -446,30 +484,42 @@ async def setmaxwarnslimit(ctx, arg):
             update_in_db_server(ctx=ctx, CounterMaxWARNS=arg)
         except:                         #ErrorLog: 1
             await ctx.send('ERROR')
-            admin_level = check_for_bot_admin(member=ctx.author)
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setmaxwarnslimit: ' + arg, admin_level, 'ERROR', 'ErrorLog: 1'))
-            base.commit()
         else:
             await ctx.send("Max counter warns was update.")
     else:
         await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
         await ctx.message.delete()
-    admin_level = check_for_bot_admin(member=ctx.author)
-    cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), ctx.author.guild.name, ctx.author.guild.id, 'Use', 'setmaxwarnslimit: ' + arg, admin_level, 'Ok', None))
-    base.commit()
+    log(ctx=ctx, Description='setmaxwarnslimit', Comment=ctx.message.content)
 
 @bot.command()
 async def setblack(ctx, *, arg):
     ctx.message.delete()
-    if ctx.author.id != 561181047317069827:
+    base = cur.execute('SELECT * FROM nice WHERE whoId == ?', (ctx.member.id,)).fetchone()
+    if not base:
         ctx.send('You aren`t developer!!!')
+        log(ctx=ctx, Description='try setblack', Comment=ctx.message.content)
+        return
     try:
         cur.execute('INSERT INTO blacklist VALUES(?, ?)', (str(arg), 0))
         base.commit()
         await ctx.channel.send('Set to black list.')
     except:
         await ctx.channel.send('Already in base.')
+    log(ctx=ctx, Description='setblack', Comment=ctx.message.content)
 
+
+@bot.command()
+async def setnice(ctx, *, member: discord.Member):
+    ctx.message.delete()
+    if ctx.author.id == 561181047317069827:
+        cur.execute('INSERT INTO nice VALUES(?, ?)', (member.name, member.id))
+        base.commit()
+        embed = discord.Embed(
+            title = f"You have become a trusted person!",
+            description = 'Now the commands are available to you: \n``setblack``',
+            color = discord.Colour.dark_gold())
+        await member.send(embed=embed)
+        await ctx.send('Ok')
 # @bot.event
 # async def yt(ctx, url):
 
@@ -482,8 +532,8 @@ async def setblack(ctx, *, arg):
 
 @bot.event
 async def on_message(message: discord.Message):
-    message_content = message.content.lower().translate(str.maketrans('','', string.punctuation + ' '))
-    if message.content[1:7] != 'setbad' and message.content[1:7] != 'delbad':
+    message_content = {i.lower().translate(str.maketrans('','', string.punctuation)) for i in message.content.split(' ')}
+    if message.content[1:7] != 'setbad' and message.content[1:7] != 'delbad'and message.content[1:7] != 'delbad'and message.content[1:7] != 'delbad':
         bads = cur.execute('SELECT * FROM bads').fetchall()
         base_bads = []
         for i in bads:
@@ -496,6 +546,7 @@ async def on_message(message: discord.Message):
                 admin_level = check_for_bot_admin(member=message.author)
                 cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, message.author.name, int(message.author.id), message.author.guild.name, message.author.guild.id, 'warn', message.content, admin_level, 'Ok', 'Word: ' + i))
                 base.commit()
+                log(ctx=message, Action='Warn', Description=message.content, ErrorLog='Ok', Comment=f'Word: ' + i)
                 if flag is False:
                     await message.channel.send(f'{message.author.mention}, uuuuu... Who should be spanked on the lips?')
                     await message.delete()
@@ -573,7 +624,7 @@ async def on_member_join(member):
     if server_base == None:
         base.execute('INSERT INTO servers VALUES(?, ?, ?, ?, ?, ?)', (int(guild_id), str(guild_name), 5, int(channel_hello.id), default_welcome_message_private, default_welcome_message_private))
         base.commit()
-    welcome_message = server_base[5]
+    welcome_message = server_base[-1]
     try:
         await member.send(welcome_message.format(prefix=settings["prefix"], member=member.mention))
     except:
@@ -601,36 +652,31 @@ async def on_member_join(member):
             for ch in bot.get_guild(member.guild.id).channels:
                 if ch.id == server_base[3]:
                     await bot.get_channel(ch.id).send('Warning limit reached... He is a bag guy...')
-                admin_level = check_for_bot_admin(member=member)
-                cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, int(member.id), member.guild.name, member.guild.id, 'Kicked', 'too many warnings', admin_level, 'Ok', None))
-                base.commit()
+                log(ctx=member, Description='Too many warns', Action='kicked')
             return
     else:
         base.execute('INSERT INTO warns VALUES(?, ?, ?)', (int(idperson), str(member.name), 0))
         base.commit()
-    welcome_message = server_base[4]
+    welcome_message = server_base[-2]
     try:
         for ch in bot.get_guild(member.guild.id).channels:
-            if ch.id == server_base[3]:
+            if ch.id == server_base[6]:
                 await bot.get_channel(ch.id).send(welcome_message.format(prefix=settings["prefix"], member=member.mention))
     except:
         try:
             for ch in bot.get_guild(member.guild.id).channels:
-                if ch.id == server_base[3]:
+                if ch.id == server_base[6]:
                     await bot.get_channel(ch.id).send(welcome_message.format(prefix=settings["prefix"]))
         except:
             try:
                 for ch in bot.get_guild(member.guild.id).channels:
-                    if ch.id == server_base[3]:
-                        await bot.get_channel(ch.id).send(welcome_message.format( member=member.mention))
-            except:
-                pass
-    for ch in bot.get_guild(member.guild.id).channels:
-        if ch.id == server_base[3]:
-            await bot.get_channel(ch.id).send(welcome_message)
-    admin_level = check_for_bot_admin(member=member)
-    cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, int(member.id), member.guild.name, member.guild.id, 'Join', 'Member was joined', admin_level, 'Ok', None))
-    base.commit()
+                    if ch.id == server_base[6]:
+                        await bot.get_channel(ch.id).send(welcome_message.format(member=member.mention))
+            except:   
+                for ch in bot.get_guild(member.guild.id).channels:
+                    if ch.id == server_base[6]:
+                        await bot.get_channel(ch.id).send(welcome_message)
+    log(ctx=member, Description=f'To {member.guild.name}', Action='Join')
 
 @bot.event
 async def on_member_remove(member):
@@ -639,11 +685,9 @@ async def on_member_remove(member):
     guild_id = this_guild.id
     server_base = cur.execute('SELECT * FROM servers WHERE ServerID == ?', (int(guild_id),)).fetchone()
     for ch in bot.get_guild(member.guild.id).channels:
-        if ch.id == server_base[3]:
+        if ch.id == server_base[-3]:
             await bot.get_channel(ch.id).send(f'{member.mention}, we will miss you (((((((')
-    admin_level = check_for_bot_admin(member=member)
-    cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, int(member.id), member.guild.name, member.guild.id, 'Escape', 'Member was escaped.', admin_level, 'Ok', None))
-    base.commit()
+    log(ctx=member, Description=f'Frome {member.guild.name}', Action='Remove')
 
 @bot.event
 async def on_ready():
@@ -669,9 +713,11 @@ async def on_ready():
     base.commit()
     base.execute('CREATE TABLE IF NOT EXISTS {}(Time, Who, WhoId PRIMARY KEY, Login, Password)'.format('passwords'))
     base.commit()
+    base.execute('CREATE TABLE IF NOT EXISTS {}(Who, whoId PRIMARY KEY)'.format('nice'))
+    base.commit()
     cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, 'Bot', None, 'Global', None, 'Start', 'Bot started', 666, 'Ok', None))
     base.commit()
-    await bot.change_presence(activity=discord.Game(name=".help"))
+    await bot.change_presence(activity=discord.Game(name="{}help".format(settings["prefix"])))
     #await bot.change_presence(activity=discord.Streaming(name="My Stream", url='test'))
 
 bot.run(settings['token']) # Обращаемся к словарю settings с ключом token, для получения токена
