@@ -617,7 +617,6 @@ async def trusted(ctx, *, member: discord.Member=None):
 
 @bot.event
 async def on_raw_reaction_add(payload):
-    print(payload)
     try:
         admin_level = check_for_bot_admin(payload=payload)
         guild_name = bot.get_guild(payload.guild_id).name
