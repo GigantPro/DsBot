@@ -145,13 +145,16 @@ def log(ctx=None, member=None, Action='Use', Description=None, ErrorLog='Ok', Co
         base.commit()
     except:
         try:
-            print(time_now, member.name, member.id, member.guild.name, member.guild.id, Action, Description, admin_status, ErrorLog, Comment)
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, member.id, member.guild.name, member.guild.id, Action, Description, admin_status, ErrorLog, Comment))
+            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.member.name, ctx.user_id, bot.get_guild(ctx.guild_id).name, ctx.guild_id, Action, Description, admin_status, ErrorLog, Comment))
             base.commit()
         except:
-            print('Error with logs')
-            cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, 'Bot', None, 'Global', None, 'ERROR', 'ERROR WITH LOGS', 666, 'ERROR', None))
-            base.commit()
+            try:
+                cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, member.id, member.guild.name, member.guild.id, Action, Description, admin_status, ErrorLog, Comment))
+                base.commit()
+            except:
+                print('Error with logs')
+                cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, 'Bot', None, 'Global', None, 'ERROR', 'ERROR WITH LOGS', 666, 'ERROR', None))
+                base.commit()
 
 @bot.command()
 async def help(ctx, *, arg=None):
@@ -264,6 +267,13 @@ async def help(ctx, *, arg=None):
                 color = discord.Colour.dark_gold(),
                 description = 'This is a secret command that can only be used by the bot creator. \nThis command will add a word or more to the BLACK LIST. \nIf someone writes these words, they will immediately be banned everywhere. \nFor example, for fraudulent links such as with free nitro')
                 await ctx.send(embed=embed)
+            if arg == 'trusted':
+                embed = discord.Embed(
+                title = "Command ``trusted``",
+                color = discord.Colour.dark_gold(),
+                description = f'This is a secret command that can only be used by bot creator. \nThis command will add member to the TRUSTED LIST. \nThis member becomes with the rights of the bot creator.')
+                await ctx.send(embed=embed)
+                return
 
             
     log(ctx=ctx, Description='help', Comment=ctx.message.content)
@@ -284,21 +294,21 @@ async def repeat(ctx, *, arg=None):
         embed = discord.Embed(
         title = "Command ``repeat``",
         color = discord.Colour.dark_gold(),
-        description = f'This command will repeat your text.\nExample: {settings["prefix"]}repeat [TEXT]')
+        description = f'**This command will repeat your text.\nExample: {settings["prefix"]}repeat [TEXT]**')
         await ctx.send(embed=embed)
         return
     await ctx.send(arg)
     log(ctx=ctx, Description='repeat', Comment=ctx.message.content)
 
 @bot.command()
-async def write(ctx, member: discord.Member = None, *, message):
+async def write(ctx, member: discord.Member=None, *, message=None):
     """Will write your message on behalf of the bot to the user)))! Write @User a message"""
     await ctx.message.delete()
     if not member:
         embed = discord.Embed(
         title = "Command ``write``",
         color = discord.Colour.dark_gold(),
-        description = f'This command will write your text to person.\nExample: {settings["prefix"]}write [@MEMBER] [TEXT]')
+        description = f'**This command will write your text to person.\nExample: {settings["prefix"]}write [@MEMBER] [TEXT]**')
         await ctx.send(embed=embed)
         return
     try:
@@ -307,7 +317,7 @@ async def write(ctx, member: discord.Member = None, *, message):
         embed = discord.Embed(
         title = "Command ``write``",
         color = discord.Colour.dark_gold(),
-        description = f'This command will write your text to person.\nExample: {settings["prefix"]}write [@MEMBER] [TEXT]')
+        description = f'**This command will write your text to person.\nExample: {settings["prefix"]}write [@MEMBER] [TEXT]**')
         await ctx.send(embed=embed)
     author = ctx.message.author
     if check_for_bot_admin(author) == True:
@@ -355,7 +365,7 @@ async def addlogin(ctx, *, login=None):
         embed = discord.Embed(
         title = "Command ``addlogin``",
         color = discord.Colour.dark_gold(),
-        description = f'This command will write your text to person.\nExample: {settings["prefix"]}write [@MEMBER] [TEXT]')
+        description = f'**This command will add your login to data base.\nExample: {settings["prefix"]}addlogin [TEXT]**')
         await ctx.send(embed=embed)
         return
     try:
@@ -369,9 +379,16 @@ async def addlogin(ctx, *, login=None):
     log(ctx=ctx, Description='addlogin', Comment=ctx.message.content)
 
 @bot.command()
-async def addpass(ctx, *, login):
+async def addpass(ctx, *, login=None):
     """With this command you can add your password to the database"""
     await ctx.message.delete()
+    if not login:
+        embed = discord.Embed(
+        title = "Command ``addpass``",
+        color = discord.Colour.dark_gold(),
+        description = f'**This command will add your login to data base.\nExample: {settings["prefix"]}addpass [TEXT]**')
+        await ctx.send(embed=embed)
+        return
     try:  
         base.execute('INSERT INTO passwords VALUES(?, ?, ?, ?, ?)', (time_now, ctx.author.name, int(ctx.author.id), None, str(login)))
         base.commit()
@@ -393,8 +410,214 @@ async def passwd(ctx):
        await ctx.message.add_reaction(emoji)
     log(ctx=ctx, Description='passwd', Comment=ctx.message.content)
 
+@bot.command()
+async def setbad(ctx, *, arg=None):
+    '''Set bad word into the black list'''
+    await ctx.message.delete()
+    if not arg:
+        embed = discord.Embed(
+        title = "Command ``setbad``",
+        color = discord.Colour.dark_gold(),
+        description = f'**Set bad word into the data base\nBut it`s command only for admins.\nExample: {settings["prefix"]}setbad [BAD WORD]**')
+        await ctx.send(embed=embed)
+        return
+    if check_for_bot_admin(ctx) == True:
+        await ctx.message.delete()
+        try:
+            base.execute('INSERT INTO bads VALUES(?, ?)', (str(arg).lower(), 0))
+            base.commit()
+        except:
+            await ctx.send("This word is already in the database.")
+        else:
+            await ctx.send("Bad word set to data base)))")
+    else:
+        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
+        await ctx.message.delete()  
+    log(ctx=ctx, Description='setbad', Comment=ctx.message.content)
+
+@bot.command()
+async def delbad(ctx, *, arg=None):
+    '''Del from base bad word'''
+    await ctx.message.delete()
+    if not arg:
+        embed = discord.Embed(
+        title = "Command ``delbad``",
+        color = discord.Colour.dark_gold(),
+        description = f'**Delete bad word from the data base\nBut it`s command only for admins.\nExample: {settings["prefix"]}delbad [BAD WORD]**')
+        await ctx.send(embed=embed)
+        return
+    if check_for_bot_admin(ctx) == True: 
+        try:
+            cur.execute('DELETE FROM bads WHERE Word == ?', (str(arg),))
+            base.commit()
+        except:
+            await ctx.send('Bad word wasn`t in base.')
+        else:
+            await ctx.send("Bad word delete from data base.")
+    else:
+        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
+        await ctx.message.delete()
+    log(ctx=ctx, Description='delbad', Comment=ctx.message.content)
+    
+@bot.command()
+async def setwelcomechannel(ctx, channel: discord.TextChannel=None):
+    '''Set welcome channel'''
+    await ctx.message.delete()
+    if not channel:
+        embed = discord.Embed(
+        title = "Command ``setwelcomechannel``",
+        color = discord.Colour.dark_gold(),
+        description = f'**Set welcome channel.\nBut it`s command only for admins.\nExample: {settings["prefix"]}setwelcomechannel [#CHANNEL]**')
+        await ctx.send(embed=embed)
+        return
+    if check_for_bot_admin(message=ctx) == True:
+        update_in_db_server(ctx=ctx, WelcomeChat=channel)
+        await ctx.send("Welcome chat was update)))")
+    else:
+        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
+    log(ctx=ctx, Description='setwelcomechannel', Comment=ctx.message.content)
+
+@bot.command()
+async def setwelcomemessageserver(ctx, *, arg=None):
+    '''Set welcome message'''
+    await ctx.message.delete()
+    if not arg:
+        embed = discord.Embed(
+        title = "Command ``setwelcomemessageserver``",
+        color = discord.Colour.dark_gold(),
+        description = f'**Set welcome message in server.\nBut it`s command only for admins.\nExample: {settings["prefix"]}setwelcomemessageserver [TEXT]**')
+        await ctx.send(embed=embed)
+        base_sq = cur.execute('SELECT * FROM servers WHERE ServerID == ?', (ctx.guild.id, )).fetchone()
+        embed = discord.Embed(
+        title = "``Now welcome message``",
+        color = discord.Colour.dark_gold(),
+        description = base_sq[-2])
+        await ctx.send(embed=embed)
+        return
+    if check_for_bot_admin(ctx) == True:
+        try:
+            check_in_db_server(ctx=ctx, WelcomeServerMessage=arg)
+            await ctx.send("Welcome message was update)))")
+        except:
+            print('ERROR WITH UPDATE SERVER WELCOME')
+            await ctx.send("ERROR")                                         #ErrorLog 1
+    else:
+        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
+    log(ctx=ctx, Description='setwelcomemessageserver', Comment=ctx.message.content)
+
+@bot.command()
+async def setwelcomemessageprivate(ctx, *, arg=None):
+    '''Set welcome message'''
+    await ctx.message.delete()
+    if not arg:
+        embed = discord.Embed(
+        title = "Command ``setwelcomemessageprivate``",
+        color = discord.Colour.dark_gold(),
+        description = f'**Set welcome message in PV.\nBut it`s command only for admins.\nExample: {settings["prefix"]}setwelcomemessageprivate [TEXT]**')
+        await ctx.send(embed=embed)
+        base_sq = cur.execute('SELECT * FROM servers WHERE ServerID == ?', (ctx.guild.id, )).fetchone()
+        embed = discord.Embed(
+        title = "``Now welcome message``",
+        color = discord.Colour.dark_gold(),
+        description = base_sq[-1])
+        await ctx.send(embed=embed)
+        return
+    if check_for_bot_admin(ctx) == True:
+        try:
+            check_in_db_server(ctx=ctx, WelcomeMessagePivate=arg)
+            await ctx.send("Welcome message was update)))")
+        except:                                             #ErrorLog: 2
+            print('ERROR WITH UPDATE PRIVATE WELCOME')
+            await ctx.send("ERROR")
+    else:
+        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
+    log(ctx=ctx, Description='setwelcomemessageprivate', Comment=ctx.message.content)
+
+@bot.command()
+async def setmaxwarnslimit(ctx, arg=None):
+    '''Set max warns limit'''
+    await ctx.message.delete()
+    if not arg:
+        embed = discord.Embed(
+        title = "Command ``setmaxwarnslimit``",
+        color = discord.Colour.dark_gold(),
+        description = f'**Set max warns limit in server.\nBut it`s command only for admins.\nExample: {settings["prefix"]}setmaxwarnslimit [NUM]**')
+        await ctx.send(embed=embed)
+        return
+    try:
+        if int(arg) <= 0:
+            await ctx.send('**The number of warnings cannot be <= 0 !!!**')
+            return
+    except:
+        await ctx.send('**The argument must be an integer !!!**')
+        return
+    if check_for_bot_admin(ctx) == True: 
+        try:
+            update_in_db_server(ctx=ctx, CounterMaxWARNS=arg)
+        except:                         #ErrorLog: 1
+            await ctx.send('ERROR')
+        else:
+            await ctx.send("Max counter warns was update.")
+    else:
+        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
+        await ctx.message.delete()
+    log(ctx=ctx, Description='setmaxwarnslimit', Comment=ctx.message.content)
+
+@bot.command()
+async def setblack(ctx, *, arg=None):
+    ctx.message.delete()
+    if not arg:
+        embed = discord.Embed(
+        title = "Command ``setblack``",
+        color = discord.Colour.dark_gold(),
+        description = f'**This is a secret command that can only be used by the bot creator. \nThis command will add a word or more to the BLACK LIST. \nIf someone writes these words, they will immediately be banned everywhere. \nFor example, for fraudulent links such as with free nitro**')
+        await ctx.send(embed=embed)
+        return
+    base = cur.execute('SELECT * FROM nice WHERE whoId == ?', (ctx.member.id,)).fetchone()
+    if not base:
+        ctx.send('You aren`t developer!!!')
+        log(ctx=ctx, Description='try setblack', Comment=ctx.message.content)
+        return
+    try:
+        cur.execute('INSERT INTO blacklist VALUES(?, ?)', (str(arg), 0))
+        base.commit()
+        await ctx.channel.send('Set to black list.')
+    except:
+        await ctx.channel.send('Already in base.')
+    log(ctx=ctx, Description='setblack', Comment=ctx.message.content)
+
+@bot.command()
+async def trusted(ctx, *, member: discord.Member=None):
+    ctx.message.delete()
+    if not member:
+        embed = discord.Embed(
+        title = "Command ``trusted``",
+        color = discord.Colour.dark_gold(),
+        description = f'**This is a secret command that can only be used by bot creator. \nThis command will add member to the TRUSTED LIST. \nThis member becomes with the rights of the bot creator.**')
+        await ctx.send(embed=embed)
+        return
+    if ctx.author.id == 561181047317069827:
+        cur.execute('INSERT INTO nice VALUES(?, ?)', (member.name, member.id))
+        base.commit()
+        embed = discord.Embed(
+            title = f"You have become a trusted person!",
+            description = 'Now the commands are available to you: \n``setblack``',
+            color = discord.Colour.dark_gold())
+        await member.send(embed=embed)
+        await ctx.send('Ok')
+# @bot.event
+# async def yt(ctx, url):
+
+#     author = ctx.message.author
+#     voice_channel = author.voice_channel
+#     vc = await bot.join_voice_channel(voice_channel)
+
+#     player = await vc.create_ytdl_player(url)
+#     player.start()
+
 @bot.event
 async def on_raw_reaction_add(payload):
+    print(payload)
     try:
         admin_level = check_for_bot_admin(payload=payload)
         guild_name = bot.get_guild(payload.guild_id).name
@@ -425,144 +648,6 @@ async def on_raw_reaction_add(payload):
     except:
         pass
     log(ctx=payload, Description='on_raw_reaction_add', Comment=f'Reaction: {str(payload.emoji)}', Action='Event')
-
-@bot.command()
-async def setbad(ctx, *, arg):
-    '''Set bad word into the black list'''
-    await ctx.message.delete()
-    if check_for_bot_admin(ctx) == True:
-        await ctx.message.delete()
-        try:
-            base.execute('INSERT INTO bads VALUES(?, ?)', (str(arg).lower(), 0))
-            base.commit()
-        except:
-            await ctx.send("This word is already in the database.")
-        else:
-            await ctx.send("Bad word set to data base)))")
-    else:
-        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
-        await ctx.message.delete()  
-    log(ctx=ctx, Description='setbad', Comment=ctx.message.content)
-
-@bot.command()
-async def delbad(ctx, *, arg):
-    '''Del from base bad word'''
-    await ctx.message.delete()
-    if check_for_bot_admin(ctx) == True: 
-        try:
-            cur.execute('DELETE FROM bads WHERE Word == ?', (str(arg),))
-            base.commit()
-        except:
-            await ctx.send('Bad word wasn`t in base.')
-        else:
-            await ctx.send("Bad word delete from data base.")
-    else:
-        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
-        await ctx.message.delete()
-    log(ctx=ctx, Description='delbad', Comment=ctx.message.content)
-    
-@bot.command()
-async def setwelcomechannel(ctx, channel: discord.TextChannel):
-    '''Set welcome channel'''
-    await ctx.message.delete()
-    if check_for_bot_admin(message=ctx) == True:
-        update_in_db_server(ctx=ctx, WelcomeChat=channel)
-        await ctx.send("Welcome chat was update)))")
-    else:
-        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
-    log(ctx=ctx, Description='setwelcomechannel', Comment=ctx.message.content)
-
-@bot.command()
-async def setwelcomemessageserver(ctx, *, arg):
-    '''Set welcome message'''
-    await ctx.message.delete()
-    if check_for_bot_admin(ctx) == True:
-        try:
-            check_in_db_server(ctx=ctx, WelcomeServerMessage=arg)
-            await ctx.send("Welcome message was update)))")
-        except:
-            print('ERROR WITH UPDATE SERVER WELCOME')
-            await ctx.send("ERROR")                                         #ErrorLog 1
-    else:
-        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
-    log(ctx=ctx, Description='setwelcomemessageserver', Comment=ctx.message.content)
-
-@bot.command()
-async def setwelcomemessageprivate(ctx, *, arg):
-    '''Set welcome message'''
-    await ctx.message.delete()
-    if check_for_bot_admin(ctx) == True:
-        try:
-            check_in_db_server(ctx=ctx, WelcomeMessagePivate=arg)
-            await ctx.send("Welcome message was update)))")
-        except:                                             #ErrorLog: 2
-            print('ERROR WITH UPDATE PRIVATE WELCOME')
-            await ctx.send("ERROR")
-    else:
-        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
-    log(ctx=ctx, Description='setwelcomemessageprivate', Comment=ctx.message.content)
-
-@bot.command()
-async def setmaxwarnslimit(ctx, arg):
-    '''Set max warns limit'''
-    await ctx.message.delete()
-    try:
-        if int(arg) <= 0:
-            await ctx.send('**The number of warnings cannot be <= 0 !!!**')
-            return
-    except:
-        await ctx.send('**The argument must be an integer !!!**')
-        return
-    if check_for_bot_admin(ctx) == True: 
-        try:
-            update_in_db_server(ctx=ctx, CounterMaxWARNS=arg)
-        except:                         #ErrorLog: 1
-            await ctx.send('ERROR')
-        else:
-            await ctx.send("Max counter warns was update.")
-    else:
-        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
-        await ctx.message.delete()
-    log(ctx=ctx, Description='setmaxwarnslimit', Comment=ctx.message.content)
-
-@bot.command()
-async def setblack(ctx, *, arg):
-    ctx.message.delete()
-    base = cur.execute('SELECT * FROM nice WHERE whoId == ?', (ctx.member.id,)).fetchone()
-    if not base:
-        ctx.send('You aren`t developer!!!')
-        log(ctx=ctx, Description='try setblack', Comment=ctx.message.content)
-        return
-    try:
-        cur.execute('INSERT INTO blacklist VALUES(?, ?)', (str(arg), 0))
-        base.commit()
-        await ctx.channel.send('Set to black list.')
-    except:
-        await ctx.channel.send('Already in base.')
-    log(ctx=ctx, Description='setblack', Comment=ctx.message.content)
-
-
-@bot.command()
-async def setnice(ctx, *, member: discord.Member):
-    ctx.message.delete()
-    if ctx.author.id == 561181047317069827:
-        cur.execute('INSERT INTO nice VALUES(?, ?)', (member.name, member.id))
-        base.commit()
-        embed = discord.Embed(
-            title = f"You have become a trusted person!",
-            description = 'Now the commands are available to you: \n``setblack``',
-            color = discord.Colour.dark_gold())
-        await member.send(embed=embed)
-        await ctx.send('Ok')
-# @bot.event
-# async def yt(ctx, url):
-
-#     author = ctx.message.author
-#     voice_channel = author.voice_channel
-#     vc = await bot.join_voice_channel(voice_channel)
-
-#     player = await vc.create_ytdl_player(url)
-#     player.start()
 
 @bot.event
 async def on_message(message: discord.Message):
@@ -722,7 +807,7 @@ async def on_member_remove(member):
     for ch in bot.get_guild(member.guild.id).channels:
         if ch.id == server_base[-3]:
             await bot.get_channel(ch.id).send(f'{member.mention}, we will miss you (((((((')
-    log(member=member, Description=f'Frome {member.guild.name}', Action='Remove')
+    log(member=member, Description=f'From {member.guild.name}', Action='Remove')
 
 @bot.event
 async def on_ready():
