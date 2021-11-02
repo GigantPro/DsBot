@@ -24,7 +24,8 @@ settings = {
     'prefix': 'ct!',
     'admin_bot_role': 'Bot Admin'}
 
-
+base = None
+cur = None
 
 set_check = True
 
@@ -81,11 +82,14 @@ def check_for_bot_admin(message=None, member=None, payload=None):
             return False
 
 def check_in_db_server(ctx, AdminRole=None, CounterMaxWARNS=5, WelcomeChat=None, WelcomeServerMessage=ctx_default_welcome_message_server, WelcomeMessagePivate=default_welcome_message_private):
-    base = cur.execute('SELECT * FROM servers WHERE ServerID == ?', (ctx.guild.id,)).fetchone()
-    print(base)
-    if not base:
-        cur.execute('INSERT INTO servers VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)', (ctx.guild.name, ctx.guild.id, AdminRole, len(ctx.guild.members), CounterMaxWARNS, WelcomeChat.name, WelcomeChat.id, WelcomeServerMessage, WelcomeMessagePivate))
-        base.commit()
+    base_sq = cur.execute('SELECT * FROM servers WHERE ServerID == ?', (ctx.guild.id,)).fetchone()
+    if not base_sq:
+        try:
+            cur.execute('INSERT INTO servers VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)', (ctx.guild.name, ctx.guild.id, AdminRole, ctx.guild.member_count, CounterMaxWARNS, WelcomeChat.name, WelcomeChat.id, WelcomeServerMessage, WelcomeMessagePivate))
+            base.commit()
+        except:
+            cur.execute('INSERT INTO servers VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)', (ctx.guild.name, ctx.guild.id, AdminRole, ctx.guild.member_count, CounterMaxWARNS, WelcomeChat, WelcomeChat, WelcomeServerMessage, WelcomeMessagePivate))
+            base.commit()
 
 def update_in_db_server(ctx, AdminRole=None, CounterMaxWARNS=None, WelcomeChat=None, WelcomeServerMessage=None, WelcomeMessagePivate=None):
     check_in_db_server(ctx)
@@ -141,6 +145,7 @@ def log(ctx=None, member=None, Action='Use', Description=None, ErrorLog='Ok', Co
         base.commit()
     except:
         try:
+            print(time_now, member.name, member.id, member.guild.name, member.guild.id, Action, Description, admin_status, ErrorLog, Comment)
             cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, member.id, member.guild.name, member.guild.id, Action, Description, admin_status, ErrorLog, Comment))
             base.commit()
         except:
@@ -272,16 +277,38 @@ async def hello(ctx): # Создаём функцию и передаём арг
     log(ctx=ctx, Description='hello', Comment=ctx.message.content)
 
 @bot.command()
-async def repeat(ctx, *, arg):
+async def repeat(ctx, *, arg=None):
     """Will repeat what you write next"""
     await ctx.message.delete()
+    if not arg:
+        embed = discord.Embed(
+        title = "Command ``repeat``",
+        color = discord.Colour.dark_gold(),
+        description = f'This command will repeat your text.\nExample: {settings["prefix"]}repeat [TEXT]')
+        await ctx.send(embed=embed)
+        return
     await ctx.send(arg)
     log(ctx=ctx, Description='repeat', Comment=ctx.message.content)
 
 @bot.command()
-async def write(ctx, member: discord.Member, *, message):
+async def write(ctx, member: discord.Member = None, *, message):
     """Will write your message on behalf of the bot to the user)))! Write @User a message"""
     await ctx.message.delete()
+    if not member:
+        embed = discord.Embed(
+        title = "Command ``write``",
+        color = discord.Colour.dark_gold(),
+        description = f'This command will write your text to person.\nExample: {settings["prefix"]}write [@MEMBER] [TEXT]')
+        await ctx.send(embed=embed)
+        return
+    try:
+        member.name
+    except:
+        embed = discord.Embed(
+        title = "Command ``write``",
+        color = discord.Colour.dark_gold(),
+        description = f'This command will write your text to person.\nExample: {settings["prefix"]}write [@MEMBER] [TEXT]')
+        await ctx.send(embed=embed)
     author = ctx.message.author
     if check_for_bot_admin(author) == True:
         try:
@@ -321,9 +348,16 @@ async def print_for_user(member: discord.Member, message):
         return True
 
 @bot.command()
-async def addlogin(ctx, *, login):
+async def addlogin(ctx, *, login=None):
     """With this command you can add your login to the database"""
     await ctx.message.delete()
+    if not login:
+        embed = discord.Embed(
+        title = "Command ``addlogin``",
+        color = discord.Colour.dark_gold(),
+        description = f'This command will write your text to person.\nExample: {settings["prefix"]}write [@MEMBER] [TEXT]')
+        await ctx.send(embed=embed)
+        return
     try:
         cur.execute('UPDATE passwords SET Login == ? WHERE WhoId == ?', (str(login), int(ctx.author.id)))
         base.commit()
@@ -607,11 +641,12 @@ async def on_message(message: discord.Message):
                 cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, message.author.name, int(message.author.id), message.author.guild.name, message.author.guild.id, 'TryBanned', message.content, admin_level, 'Ok', 'Reason = Spammer'))
                 base.commit()
                 break
-    await bot.process_commands(message)
+
     check_in_db_server(ctx=message)
     admin_level = check_for_bot_admin(message=message)
     cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, message.author.name, int(message.author.id), message.author.guild.name, message.author.guild.id, 'Write', message.content, admin_level, 'Ok', None))
     base.commit()
+    await bot.process_commands(message)
 
 @bot.event
 async def on_member_join(member):
@@ -687,7 +722,7 @@ async def on_member_remove(member):
     for ch in bot.get_guild(member.guild.id).channels:
         if ch.id == server_base[-3]:
             await bot.get_channel(ch.id).send(f'{member.mention}, we will miss you (((((((')
-    log(ctx=member, Description=f'Frome {member.guild.name}', Action='Remove')
+    log(member=member, Description=f'Frome {member.guild.name}', Action='Remove')
 
 @bot.event
 async def on_ready():

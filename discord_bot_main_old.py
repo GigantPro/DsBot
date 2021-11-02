@@ -276,7 +276,6 @@ async def on_raw_reaction_add(payload):
         if (payload.message_id == msg) and (payload.user_id != bot.user.id):
             channel = bot.get_channel(payload.channel_id)
             #await channel.send(f'Получена реакция: {payload.emoji}')
-            create()
             if f'{str(payload.emoji)}' == '☑':
         
                 await channel.send(f'Well, as you know ... If this is a server chat, then blame yourself ....')
@@ -295,7 +294,7 @@ async def on_raw_reaction_add(payload):
             user = payload.member
             answer_login = json_read_login(str(user))
             if answer_login == False:
-                temp_boll = await print_for_user(user, "Sorry, but you are in my database ntu ... \ nYou can enter yourself by writing the command ** add ** \ nExample:! Add [Your login] [Your password] \ nDon't worry, no one will do it for you))")
+                temp_boll = await print_for_user(user, "Sorry, but you are in my database ntu ... \nYou can enter yourself by writing the command ** add ** \nExample:! Add [Your login] [Your password] \nDon't worry, no one will do it for you))")
                 if temp_boll == False:
                     print('ERROR не удалось отправить в личку про отсутствие в базе')
                 #await bot.send_message(user, f'Извини, но тебя в моей базе нту...\nТы можешь себя вписать написа команду **добавить** \nПример: !добавить [Твой логин] [Твой пароль]\nНе переживайте, за тебя никто дз не выполнит))😉)')                     
