@@ -10,6 +10,11 @@ import string
 import os, sqlite3
 from datetime import datetime
 from asyncio import sleep
+from youtube_dl import YoutubeDL
+
+YDL_OPTIONS = {'format': 'bestaudio', 'noplaylist':'False'}
+FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
+
 
 '''
 НЕМНОГО О КАРТИНКАХ:
@@ -23,9 +28,6 @@ settings = {
     'id': 889092706935128074,
     'prefix': 'ct!',
     'admin_bot_role': 'Bot Admin'}
-
-base = None
-cur = None
 
 set_check = True
 
@@ -44,13 +46,13 @@ usercommands = f"""**{settings['prefix']}help** - this command
 **{settings['prefix']}fire** - Will just send :fire:
 **{settings['prefix']}addlogin** - Add your login to the database
 **{settings['prefix']}addpass** - Add your password to the database
-**{settings['prefix']}passwd** - See your username and password"""
-admincommands = f"""{settings['prefix']}
-{settings['prefix']}
-{settings['prefix']}
-{settings['prefix']}
-{settings['prefix']}
-{settings['prefix']}"""
+**{settings['prefix']}passwd** - See your username and password
+**{settings['prefix']}admhelp** - See all admin commands"""
+admincommands = f"""**{settings['prefix']}write** - Just send your message to person.
+**{settings['prefix']}setbad** - set bad word to data base.
+**{settings['prefix']}setwelcomemessageserver** - set welcome message on server
+**{settings['prefix']}setwelcomemessageprivate** - set welcome message on PV
+**{settings['prefix']}setmaxwarnslimit** - set max warns limit in server"""
 
 def update_time():
     global time_now
@@ -60,22 +62,31 @@ def update_time():
 
 def check_for_bot_admin(message=None, member=None, payload=None):
     if message:
-        if message.author.guild_permissions.administrator:
-            return True
-        if get(message.author.roles, name=settings['admin_bot_role']):
-            return True
-        else:
-            return False
+        try:
+            if message.author.guild_permissions.administrator:
+                return True
+        except Exception as ex:
+            print(ex)
+            if get(message.author.roles, name=settings['admin_bot_role']):
+                return True
+            else:
+                return False
     if member:
-        if member.guild_permissions.administrator:
-            return True
-        if get(member.roles, name=settings['admin_bot_role']):
-            return True
-        else:
-            return False
+        try:
+            if member.guild_permissions.administrator:
+                return True
+        except Exception as ex:
+            print(ex)
+            if get(member.roles, name=settings['admin_bot_role']):
+                return True
+            else:
+                return False
     if payload:
-        if payload.member.guild_permissions.administrator:
-            return True
+        try:
+            if payload.member.guild_permissions.administrator:
+                return True
+        except Exception as ex:
+            print(ex)
         if get(payload.member.roles, name=settings['admin_bot_role']):
             return True
         else:
@@ -151,8 +162,8 @@ def log(ctx=None, member=None, Action='Use', Description=None, ErrorLog='Ok', Co
             try:
                 cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, member.id, member.guild.name, member.guild.id, Action, Description, admin_status, ErrorLog, Comment))
                 base.commit()
-            except:
-                print('Error with logs')
+            except Exception as ex:
+                print('Error with logs: ' + ex)
                 cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, 'Bot', None, 'Global', None, 'ERROR', 'ERROR WITH LOGS', 666, 'ERROR', None))
                 base.commit()
 
@@ -274,9 +285,50 @@ async def help(ctx, *, arg=None):
                 description = f'This is a secret command that can only be used by bot creator. \nThis command will add member to the TRUSTED LIST. \nThis member becomes with the rights of the bot creator.')
                 await ctx.send(embed=embed)
                 return
-
-            
+            if arg == 'admhelp':
+                embed = discord.Embed(
+                title = "Command ``admhelp``",
+                color = discord.Colour.dark_gold(),
+                description = 'This command will see all admin`s commands.')
+                await ctx.send(embed=embed)    
     log(ctx=ctx, Description='help', Comment=ctx.message.content)
+
+@bot.command()
+async def admhelp(ctx):
+    if check_for_bot_admin(message=ctx.message) is True:
+        embed = discord.Embed(
+        title = "``Commands for admin``",
+        color = discord.Colour.dark_gold(),
+        description = admincommands)
+        await ctx.send(embed=embed)   
+    else:
+        await ctx.send('You arn`t an admin...') 
+
+@bot.command()
+async def play(ctx, arg):
+    global vc
+
+    try:
+        voice_channel = ctx.message.author.voice.channel
+        vc = await voice_channel.connect()
+    except:
+        print('Уже подключен или не удалось подключиться')
+
+    if vc.is_playing():
+        await ctx.send(f'{ctx.message.author.mention}, музыка уже проигрывается.')
+
+    else:
+        with YoutubeDL(YDL_OPTIONS) as ydl:
+            info = ydl.extract_info(arg, download=False)
+
+        URL = info['formats'][0]['url']
+
+        vc.play(discord.FFmpegPCMAudio(executable="ffmpeg\\ffmpeg.exe", source = URL, **FFMPEG_OPTIONS))
+                
+        while vc.is_playing():
+            await sleep(1)
+        if not vc.is_paused():
+            await vc.disconnect()
 
 @bot.command() # Не передаём аргумент pass_context, так как он был нужен в старых версиях.
 async def hello(ctx): # Создаём функцию и передаём аргумент ctx.
@@ -402,7 +454,6 @@ async def addpass(ctx, *, login=None):
 @bot.command()
 async def passwd(ctx):
     """With this command you can see your username and password"""
-    await ctx.message.delete()
     global msg
     await ctx.send('Send here?')
     msg = ctx.message.id
@@ -725,7 +776,6 @@ async def on_message(message: discord.Message):
                 cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, message.author.name, int(message.author.id), message.author.guild.name, message.author.guild.id, 'TryBanned', message.content, admin_level, 'Ok', 'Reason = Spammer'))
                 base.commit()
                 break
-
     check_in_db_server(ctx=message)
     admin_level = check_for_bot_admin(message=message)
     cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, message.author.name, int(message.author.id), message.author.guild.name, message.author.guild.id, 'Write', message.content, admin_level, 'Ok', None))
