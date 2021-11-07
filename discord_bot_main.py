@@ -22,6 +22,8 @@ https://cdn.discordapp.com/attachments/904289207739093013/904688195873148938/hz.
 https://cdn.discordapp.com/attachments/867495470989443137/878686286368636978/XAbh.gif - гифка скажи друже
 '''
 
+log_list = []
+
 settings = {
     'token': 'ODg5MDkyNzA2OTM1MTI4MDc0.YUcOGw.IQVUrV52SsdfnT-sZxAVBxXiAEs',
     'bot': 'Crowbar Bot',
@@ -162,10 +164,22 @@ def log(ctx=None, member=None, Action='Use', Description=None, ErrorLog='Ok', Co
             try:
                 cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, member.name, member.id, member.guild.name, member.guild.id, Action, Description, admin_status, ErrorLog, Comment))
                 base.commit()
-            except Exception as ex:
-                print('Error with logs: ' + ex)
-                cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, 'Bot', None, 'Global', None, 'ERROR', 'ERROR WITH LOGS', 666, 'ERROR', None))
-                base.commit()
+            except:
+                try:
+                    cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.member.name, ctx.user.id, member.guild.name, member.guild.id, Action, Description, admin_status, ErrorLog, Comment))
+                    base.commit()
+                except Exception as ex:
+                    print('Error with logs: ' + ex)
+                    cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, 'Bot', None, 'Global', None, 'ERROR', 'ERROR WITH LOGS', 666, 'ERROR', None))
+                    base.commit()
+
+async def print_for_user(member: discord.Member, message):
+    try:
+        await member.send(message)
+    except: # this will error if the user has blocked the bot or has server dms disabled
+        return False
+    else:
+        return True
 
 @bot.command()
 async def help(ctx, *, arg=None):
@@ -401,14 +415,6 @@ async def fire(ctx):
     await ctx.send(f":fire:")
     log(ctx=ctx, Description='fire', Comment=ctx.message.content)
 
-async def print_for_user(member: discord.Member, message):
-    try:
-        await member.send(message)
-    except: # this will error if the user has blocked the bot or has server dms disabled
-        return False
-    else:
-        return True
-
 @bot.command()
 async def addlogin(ctx, *, login=None):
     """With this command you can add your login to the database"""
@@ -455,6 +461,7 @@ async def addpass(ctx, *, login=None):
 async def passwd(ctx):
     """With this command you can see your username and password"""
     global msg
+    log_list.append({'Author': ctx.author.id, 'Atcion': 'UsePasswd'})
     await ctx.send('Send here?')
     msg = ctx.message.id
     for emoji in ['☑', '🚫']:
@@ -473,7 +480,6 @@ async def setbad(ctx, *, arg=None):
         await ctx.send(embed=embed)
         return
     if check_for_bot_admin(ctx) == True:
-        await ctx.message.delete()
         try:
             base.execute('INSERT INTO bads VALUES(?, ?)', (str(arg).lower(), 0))
             base.commit()
@@ -482,8 +488,7 @@ async def setbad(ctx, *, arg=None):
         else:
             await ctx.send("Bad word set to data base)))")
     else:
-        await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
-        await ctx.message.delete()  
+        await ctx.send(f"{ctx.author.mention}, you aren't an admin...") 
     log(ctx=ctx, Description='setbad', Comment=ctx.message.content)
 
 @bot.command()
@@ -507,7 +512,6 @@ async def delbad(ctx, *, arg=None):
             await ctx.send("Bad word delete from data base.")
     else:
         await ctx.send(f"{ctx.author.mention}, you aren't an admin...")
-        await ctx.message.delete()
     log(ctx=ctx, Description='delbad', Comment=ctx.message.content)
     
 @bot.command()
@@ -668,35 +672,34 @@ async def trusted(ctx, *, member: discord.Member=None):
 
 @bot.event
 async def on_raw_reaction_add(payload):
-    try:
-        admin_level = check_for_bot_admin(payload=payload)
-        guild_name = bot.get_guild(payload.guild_id).name
-    except:
-        admin_level = guild_name = 'PV'
     member = payload.member
     try:
         pass_base = None
         channel = bot.get_channel(payload.channel_id)
-        if (payload.message_id == msg) and (payload.user_id != bot.user.id):
-            
-            try:
-                pass_base = cur.execute('SELECT * FROM passwords WHERE WhoId == ?', (int(member.id),)).fetchone()
-                if not pass_base:
-                    vizov_iscluchenija
-            except:       
-                await channel.send(f"Sorry, but you are not in my database... \nYou can enter yourself by writing the command **addlogin** and **addpass**")
-                return
-            #await channel.send(f'Получена реакция: {payload.emoji}')
-            if f'{str(payload.emoji)}' == '☑':        
-                await channel.send(f'Well, as you know ... If this is a server chat, then blame yourself ....')
-                await channel.send(f'Here is your username and password))) Use it 😉\nLogin: **{pass_base[3]}**\nPassword: **{pass_base[4]}**')       
-            else:    
-                await channel.send("That's right!)\nCheck a PV)))")
-                temp_bool = await member.send(f'Here is your username and password))) Use it 😉\nLogin: **{pass_base[3]}**\nPassword: **{pass_base[4]}**')  
-                if temp_bool == False:
-                    await channel.send(f'{member.mention}, you blocked my messages((')
+        for i in log_list:
+            if i['Author'] == member.id:
+                if payload.user_id != bot.user.id:
+                    try:
+                        pass_base = cur.execute('SELECT * FROM passwords WHERE WhoId == ?', (int(member.id),)).fetchone()
+                        if not pass_base:
+                            vizov_iscluchenija
+                    except:       
+                        await channel.send(f"Sorry, but you are not in my database... \nYou can enter yourself by writing the command **addlogin** and **addpass**")
+                        return
+                    #await channel.send(f'Получена реакция: {payload.emoji}')
+                    if f'{str(payload.emoji)}' == '☑':        
+                        await channel.send(f'Well, as you know ... If this is a server chat, then blame yourself ....')
+                        await channel.send(f'Here is your username and password))) Use it 😉\nLogin: **{pass_base[3]}**\nPassword: **{pass_base[4]}**')       
+                    else:    
+                        await channel.send("That's right!)\nCheck a PV)))")
+                        temp_bool = await member.send(f'Here is your username and password))) Use it 😉\nLogin: **{pass_base[3]}**\nPassword: **{pass_base[4]}**')  
+                        if temp_bool == False:
+                            await channel.send(f'{member.mention}, you blocked my messages(((')
+                log_list.remove(i)
+                break
     except:
         pass
+    print(payload)
     log(ctx=payload, Description='on_raw_reaction_add', Comment=f'Reaction: {str(payload.emoji)}', Action='Event')
 
 @bot.event
@@ -889,4 +892,16 @@ async def on_ready():
     await bot.change_presence(activity=discord.Game(name="{}help".format(settings["prefix"])))
     #await bot.change_presence(activity=discord.Streaming(name="My Stream", url='test'))
 
+@bot.command()
+async def test(ctx):
+    global a
+    a = 'Bla'
+
+@bot.command()
+async def test1(ctx):
+    print(a)
+@bot.command()
+async def test2(ctx):
+    global a
+    del(a)
 bot.run(settings['token']) # Обращаемся к словарю settings с ключом token, для получения токена
