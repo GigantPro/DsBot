@@ -36,10 +36,6 @@ set_check = True
 default_welcome_message_private = 'Hello!) I am a friendly server bot) To explore my capabilities, enter the command "``{prefix}help``" )'
 ctx_default_welcome_message_server  = '{member}, hey bro!) Check your private messages)))'
 
-
-bot = commands.Bot(command_prefix = settings['prefix'], intents=discord.Intents.all()) # Так как мы указали префикс в settings, обращаемся к словарю с ключом prefix.
-bot.remove_command('help')
-#{settings['prefix']}write - Will write your message on behalf of the bot to the user)))! {settings['prefix']}write @User [message]
 usercommands = f"""**{settings['prefix']}help** - this command
 **{settings['prefix']}help [command]** - help with command
 **{settings['prefix']}hello** - Welcome you
@@ -55,6 +51,12 @@ admincommands = f"""**{settings['prefix']}write** - Just send your message to pe
 **{settings['prefix']}setwelcomemessageserver** - set welcome message on server
 **{settings['prefix']}setwelcomemessageprivate** - set welcome message on PV
 **{settings['prefix']}setmaxwarnslimit** - set max warns limit in server"""
+
+
+
+bot = commands.Bot(command_prefix = settings['prefix'], intents=discord.Intents.all()) # Так как мы указали префикс в settings, обращаемся к словарю с ключом prefix.
+bot.remove_command('help')
+#{settings['prefix']}write - Will write your message on behalf of the bot to the user)))! {settings['prefix']}write @User [message]
 
 def update_time():
     global time_now
@@ -321,23 +323,26 @@ async def admhelp(ctx):
 @bot.command()
 async def play(ctx, arg):
     global vc
+    channel = ctx.message.author.voice.channel
+    if not channel:
+        await ctx.send("You're not connected to any voice channel !")
+    else:
+        vc = get(bot.voice_clients, guild=ctx.guild)
+        if vc and vc.is_connected():
+            await vc.move_to(channel)
+        else:
+            vc = await channel.connect()
 
-    try:
-        voice_channel = ctx.message.author.voice.channel
-        vc = await voice_channel.connect()
-    except:
-        print('Уже подключен или не удалось подключиться')
 
     if vc.is_playing():
         await ctx.send(f'{ctx.message.author.mention}, музыка уже проигрывается.')
-
     else:
         with YoutubeDL(YDL_OPTIONS) as ydl:
             info = ydl.extract_info(arg, download=False)
 
         URL = info['formats'][0]['url']
 
-        vc.play(discord.FFmpegPCMAudio(executable="ffmpeg\\ffmpeg.exe", source = URL, **FFMPEG_OPTIONS))
+        vc.play(discord.FFmpegPCMAudio(executable="ffmpeg.exe", source = URL, **FFMPEG_OPTIONS))
                 
         while vc.is_playing():
             await sleep(1)
@@ -903,4 +908,5 @@ async def test1(ctx):
 async def test2(ctx):
     global a
     del(a)
+
 bot.run(settings['token']) # Обращаемся к словарю settings с ключом token, для получения токена
