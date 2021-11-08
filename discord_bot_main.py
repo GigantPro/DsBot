@@ -169,7 +169,7 @@ def log(ctx=None, member=None, Action='Use', Description=None, ErrorLog='Ok', Co
                     cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, ctx.member.name, ctx.user.id, member.guild.name, member.guild.id, Action, Description, admin_status, ErrorLog, Comment))
                     base.commit()
                 except Exception as ex:
-                    print('Error with logs: ' + ex)
+                    print('Error with logs: ' + str(ex))
                     cur.execute('INSERT INTO logs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (time_now, 'Bot', None, 'Global', None, 'ERROR', 'ERROR WITH LOGS', 666, 'ERROR', None))
                     base.commit()
 
@@ -699,7 +699,6 @@ async def on_raw_reaction_add(payload):
                 break
     except:
         pass
-    print(payload)
     log(ctx=payload, Description='on_raw_reaction_add', Comment=f'Reaction: {str(payload.emoji)}', Action='Event')
 
 @bot.event
