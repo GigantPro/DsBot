@@ -27,9 +27,9 @@ https://cdn.discordapp.com/attachments/867495470989443137/878686286368636978/XAb
 log_list = []
 
 settings = {
-    'token': 'ODg5MDkyNzA2OTM1MTI4MDc0.YUcOGw.IQVUrV52SsdfnT-sZxAVBxXiAEs',
+    'token': 'Token',
     'bot': 'Crowbar Bot',
-    'id': 889092706935128074,
+    'id': 666,
     'prefix': 'ct!',
     'admin_bot_role': 'Bot Admin'}
 
@@ -335,15 +335,23 @@ async def admhelp(ctx):
         await ctx.send('You arn`t an admin...') 
 
 @bot.command()
-async def play(ctx, *, arg):
+async def play(ctx, *, arg=None):
     # results = YoutubeSearch('search terms', max_results=10).to_dict()
     # for v in results:
     #     print(v)
+    if arg == None:
+        embed = discord.Embed(
+            title = f"Command ``play``",
+            description = f'This command plays music or a link to a YouTube video in a voice chat. Example: {settings["prefix"]}play [URL/TEXT]',
+            color = discord.Colour.dark_gold())
+        await ctx.send(embed=embed)
+        return
     global vc
     if 'youtube.com' in arg:
         channel = ctx.message.author.voice.channel
         if not channel:
-            await ctx.send("You're not connected to any voice channel !")
+            await ctx.send("You're not connected to any voice channel!")
+            return
         else:
             vc = get(bot.voice_clients, guild=ctx.guild)
             if vc and vc.is_connected():
@@ -353,37 +361,48 @@ async def play(ctx, *, arg):
         if vc.is_playing():
             await ctx.send(f'{ctx.message.author.mention}, музыка уже проигрывается.')
         else:
+            result_serch = None
             with YoutubeDL(YDL_OPTIONS) as ydl:
                 info = ydl.extract_info(arg, download=False)
+                #result_serch = info['formats'][0]
             URL = info['formats'][0]['url']
+            print(result_serch)
+            #await ctx.send(f":notes: {result_serch[0]['title']} Добавлено в Очередь !") # {result_serch[0]['title']}
             vc.play(discord.FFmpegPCMAudio(executable="ffmpeg.exe", source = URL, **FFMPEG_OPTIONS))       
             while vc.is_playing():
                 await sleep(1)
             if not vc.is_paused():
                 await vc.disconnect()
     else:
-        result_serch = YoutubeSearch(arg, max_results=1).to_dict()
-        results = f'https://www.youtube.com{result_serch[0]["url_suffix"]}'
-        channel = ctx.message.author.voice.channel
-        if not channel:
-            await ctx.send("You're not connected to any voice channel !")
-        else:
-            vc = get(bot.voice_clients, guild=ctx.guild)
-            if vc and vc.is_connected():
-                await vc.move_to(channel)
+        try:
+            result_serch = YoutubeSearch(arg, max_results=1).to_dict()
+            results = f'https://www.youtube.com{result_serch[0]["url_suffix"]}'
+            channel = ctx.message.author.voice.channel
+            if not channel:
+                await ctx.send("You're not connected to any voice channel !")
             else:
-                vc = await channel.connect()
-        if vc.is_playing():
-            await ctx.send(f'{ctx.message.author.mention}, music is already playing.')
-        else:
-            with YoutubeDL(YDL_OPTIONS) as ydl:
-                info = ydl.extract_info(results, download=False)
-            URL = info['formats'][0]['url']
-            vc.play(discord.FFmpegPCMAudio(executable="ffmpeg.exe", source = URL, **FFMPEG_OPTIONS))       
-            while vc.is_playing():
-                await sleep(1)
-            if not vc.is_paused():
-                await vc.disconnect()
+                vc = get(bot.voice_clients, guild=ctx.guild)
+                if vc and vc.is_connected():
+                    await vc.move_to(channel)
+                else:
+                    vc = await channel.connect()
+            if vc.is_playing():
+                await ctx.send(f'{ctx.message.author.mention}, music is already playing.')
+            else:
+                with YoutubeDL(YDL_OPTIONS) as ydl:
+                    info = ydl.extract_info(results, download=False)
+                URL = info['formats'][0]['url']
+                vc.play(discord.FFmpegPCMAudio(executable="ffmpeg.exe", source = URL, **FFMPEG_OPTIONS))       
+                while vc.is_playing():
+                    await sleep(1)
+                if not vc.is_paused():
+                    await vc.disconnect()
+        except:
+            embed = discord.Embed(
+                title = f"Command ``play``",
+                description = f'This command plays music or a link to a YouTube video in a voice chat. Example: {settings["prefix"]}play [URL/TEXT]',
+                color = discord.Colour.dark_gold())
+            await ctx.send(embed=embed)
 
 @bot.command() # Не передаём аргумент pass_context, так как он был нужен в старых версиях.
 async def hello(ctx): # Создаём функцию и передаём аргумент ctx.
@@ -942,7 +961,6 @@ async def test1(ctx):
     print(a)
 @bot.command()
 async def test2(ctx):
-    global a
-    del(a)
+    print(await ctx.send('Hi'))
 
 bot.run(settings['token']) # Обращаемся к словарю settings с ключом token, для получения токена
